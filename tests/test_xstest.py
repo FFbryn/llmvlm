@@ -3,7 +3,7 @@ from typing import Any
 
 import csv
 
-from datasets.schema import BenchmarkSample
+from benchmark_data.adapters.xstest import XSTestAdapter
 
 
 class XSTestAdapter:

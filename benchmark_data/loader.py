@@ -1,10 +1,10 @@
 from typing import Any
 
-from datasets.schema import BenchmarkSample
-from datasets.adapters.jbb import JBBAdapter
-from datasets.adapters.advbench import AdvBenchAdapter
-from datasets.adapters.harmbench import HarmBenchAdapter
-from datasets.adapters.xstest import XSTestAdapter
+from benchmark_data.schema import BenchmarkSample
+from benchmark_data.adapters.jbb import JBBAdapter
+from benchmark_data.adapters.advbench import AdvBenchAdapter
+from benchmark_data.adapters.harmbench import HarmBenchAdapter
+from benchmark_data.adapters.xstest import XSTestAdapter
 
 
 class DatasetLoader:
@@ -47,20 +47,6 @@ class DatasetLoader:
         adapter_kwargs : Any
             Parameter tambahan yang diteruskan
             ke adapter.
-
-        Contoh:
-
-            DatasetLoader("harmbench")
-
-            DatasetLoader(
-                "harmbench",
-                config="contextual"
-            )
-
-            DatasetLoader(
-                "xstest",
-                data_path="..."
-            )
         """
 
         benchmark = benchmark.lower().strip()

@@ -1,5 +1,4 @@
-from datasets.adapters.harmbench import HarmBenchAdapter
-
+from benchmark_data.adapters.harmbench import HarmBenchAdapter
 
 def test_invalid_config():
     """

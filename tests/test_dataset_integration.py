@@ -1,4 +1,4 @@
-from datasets.loader import DatasetLoader
+from benchmark_data.loader import DatasetLoader
 
 
 def test_jbb_integration():

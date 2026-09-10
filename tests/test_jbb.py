@@ -1,4 +1,4 @@
-from datasets.adapters.jbb import JBBAdapter
+from benchmark_data.adapters.jbb import JBBAdapter
 
 
 def main():

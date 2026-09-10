@@ -2,7 +2,7 @@ from typing import Any
 
 from datasets import load_dataset
 
-from datasets.schema import BenchmarkSample
+from benchmark_data.schema import BenchmarkSample
 
 
 class HarmBenchAdapter:

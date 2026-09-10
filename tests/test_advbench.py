@@ -1,4 +1,4 @@
-from datasets.adapters.advbench import AdvBenchAdapter
+from benchmark_data.adapters.advbench import AdvBenchAdapter
 
 
 def main():
