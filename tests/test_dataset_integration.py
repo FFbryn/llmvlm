@@ -14,7 +14,7 @@ def test_jbb_integration():
 
     sample = samples[0]
 
-    assert sample.benchmark == "JBB"
+    assert sample.benchmark == "JBB-Behaviors"
     assert sample.prompt
     assert sample.sample_id
 

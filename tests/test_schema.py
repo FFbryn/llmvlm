@@ -1,4 +1,4 @@
-from datasets.schema import BenchmarkSample
+from benchmark_data.schema import BenchmarkSample
 
 
 def main():
