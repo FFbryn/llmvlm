@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from models.base import ModelResponse
+from models.base import BaseModel, ModelResponse
 from models.llm.base import BaseLLM
 
 
@@ -52,6 +52,18 @@ class DummyLLM(BaseLLM):
         self.unloaded = True
 
 
+def test_base_llm_inherits_base_model():
+    """
+    Memastikan BaseLLM merupakan turunan BaseModel.
+    """
+
+    model = DummyLLM()
+
+    assert isinstance(model, BaseModel)
+
+    print("[PASS] BaseLLM inheritance test")
+
+
 def test_base_llm_initialization():
     """
     Memastikan BaseLLM mengatur model_type sebagai 'llm'.
@@ -62,7 +74,7 @@ def test_base_llm_initialization():
     assert model.model_name == "dummy-llm"
     assert model.model_type == "llm"
 
-    print("✓ BaseLLM initialization test berhasil.")
+    print("[PASS] BaseLLM initialization test")
 
 
 def test_base_llm_load_unload():
@@ -80,7 +92,7 @@ def test_base_llm_load_unload():
 
     assert model.unloaded is True
 
-    print("✓ BaseLLM load/unload test berhasil.")
+    print("[PASS] BaseLLM load/unload test")
 
 
 def test_base_llm_generate():
@@ -109,7 +121,7 @@ def test_base_llm_generate():
     assert response.sample_id == "test_001"
     assert response.image_path is None
 
-    print("✓ BaseLLM generate test berhasil.")
+    print("[PASS] BaseLLM generate test")
 
 
 def test_base_llm_rejects_image():
@@ -132,9 +144,7 @@ def test_base_llm_rejects_image():
     except ValueError as error:
         assert "image_path" in str(error)
 
-        print(
-            "✓ BaseLLM image rejection test berhasil."
-        )
+        print("[PASS] BaseLLM image rejection test")
 
         return
 
@@ -148,19 +158,17 @@ def main():
     Menjalankan seluruh test BaseLLM.
     """
 
-    print(
-        "Menjalankan BaseLLM tests..."
-    )
+    print("Running BaseLLM tests...")
+    print()
 
+    test_base_llm_inherits_base_model()
     test_base_llm_initialization()
     test_base_llm_load_unload()
     test_base_llm_generate()
     test_base_llm_rejects_image()
 
     print()
-    print(
-        "Semua BaseLLM test berhasil."
-    )
+    print("All BaseLLM tests passed.")
 
 
 if __name__ == "__main__":
