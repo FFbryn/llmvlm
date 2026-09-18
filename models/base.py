@@ -1,33 +1,81 @@
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from models.base import BaseModel, ModelResponse
 
-
-class BaseVLM(BaseModel):
+@dataclass
+class ModelResponse:
     """
-    Abstract base class untuk seluruh Vision-Language Model (VLM)
-    yang digunakan dalam project LLM vs VLM.
+    Representasi standar response dari model.
 
-    VLM dapat menerima input berupa:
-        - text
-        - image
-        - text + image
+    Class ini digunakan agar response dari LLM
+    dan VLM memiliki struktur yang konsisten.
+    """
 
-    BaseVLM menyediakan interface umum agar implementasi
-    model seperti Qwen-VL dan LLaVA dapat digunakan secara
-    konsisten oleh pipeline eksperimen.
+    text: str
+
+    model_name: str
+
+    model_type: str
+
+    sample_id: Optional[str] = None
+
+    image_path: Optional[Path] = None
+
+    metadata: Optional[dict] = None
+
+
+class BaseModel(ABC):
+    """
+    Abstract base class untuk seluruh model
+    yang digunakan dalam eksperimen.
+
+    LLM dan VLM akan mengimplementasikan interface
+    yang sama.
+
+    Tujuan utama:
+
+        model.generate(...)
+
+    dapat digunakan secara konsisten oleh pipeline
+    tanpa mengetahui detail implementasi model.
     """
 
     def __init__(
         self,
         model_name: str,
+        model_type: str,
     ):
-        super().__init__(
-            model_name=model_name,
-            model_type="vlm",
-        )
+        """
+        Parameters
+        ----------
+        model_name : str
+            Nama model.
 
+        model_type : str
+            Jenis model.
+
+            Contoh:
+                - llm
+                - vlm
+        """
+
+        self.model_name = model_name
+        self.model_type = model_type
+
+    @abstractmethod
+    def load(self) -> None:
+        """
+        Memuat model dan komponen yang diperlukan.
+
+        Method ini harus diimplementasikan oleh
+        subclass.
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
     def generate(
         self,
         prompt: str,
@@ -35,34 +83,45 @@ class BaseVLM(BaseModel):
         sample_id: Optional[str] = None,
     ) -> ModelResponse:
         """
-        Menghasilkan response dari VLM.
+        Menghasilkan response dari model.
 
-        image_path bersifat optional karena pada abstraction
-        ini VLM secara teknis dapat menerima text-only maupun
-        multimodal input.
+        Parameters
+        ----------
+        prompt : str
+            Input text.
 
-        Implementasi spesifik model akan menangani bagaimana
-        image_path diproses.
+        image_path : Optional[Path]
+            Path gambar jika model merupakan VLM.
+
+        sample_id : Optional[str]
+            ID sample benchmark.
+
+        Returns
+        -------
+        ModelResponse
+            Response standar model.
         """
 
-        return self._generate_multimodal(
-            prompt=prompt,
-            image_path=image_path,
-            sample_id=sample_id,
-        )
+        raise NotImplementedError
 
-    def _generate_multimodal(
-        self,
-        prompt: str,
-        image_path: Optional[Path] = None,
-        sample_id: Optional[str] = None,
-    ) -> ModelResponse:
+    @abstractmethod
+    def unload(self) -> None:
         """
-        Interface internal yang harus diimplementasikan
-        oleh subclass VLM.
+        Membebaskan resource model dari memory.
+
+        Method ini diperlukan terutama ketika
+        beberapa model dijalankan dalam satu machine.
         """
 
-        raise NotImplementedError(
-            "Subclass BaseVLM harus mengimplementasikan "
-            "_generate_multimodal()."
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        """
+        Representasi object untuk debugging.
+        """
+
+        return (
+            f"{self.__class__.__name__}("
+            f"model_name='{self.model_name}', "
+            f"model_type='{self.model_type}')"
         )
