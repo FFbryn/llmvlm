@@ -6,3 +6,7 @@ pillow
 pandas
 tqdm
 pyyaml
+tiktoken
+sentencepiece
+protobuf
+torchvision
