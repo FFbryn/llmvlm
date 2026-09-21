@@ -10,3 +10,4 @@ tiktoken
 sentencepiece
 protobuf
 torchvision
+pillow
