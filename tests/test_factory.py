@@ -7,10 +7,11 @@ from config.model_config import (
 
 from models.base import BaseModel
 from models.factory import (
-    MODEL_REGISTRY,
     create_model,
     create_model_from_config,
 )
+
+from models.model_registry import MODEL_REGISTRY
 
 from models.llm.qwen import QwenLLM
 from models.llm.vicuna import VicunaLLM

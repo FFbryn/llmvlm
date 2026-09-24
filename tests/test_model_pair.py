@@ -1,50 +1,61 @@
-import pytest
-
 from config.model_pair import ModelPairConfig
+from evaluation.experiment_condition import ExperimentCondition
 
 
-def test_model_pair_config():
-    config = ModelPairConfig(
+def create_pair() -> ModelPairConfig:
+    return ModelPairConfig(
         pair_id="qwen_pair",
-        llm_model="Qwen/Qwen2.5-7B-Instruct",
-        vlm_model="Qwen/Qwen2.5-VL-7B-Instruct",
+        llm_model_key="qwen_llm",
+        vlm_model_key="qwen_vlm",
     )
 
-    assert config.pair_id == "qwen_pair"
-    assert config.llm_model == "Qwen/Qwen2.5-7B-Instruct"
-    assert config.vlm_model == "Qwen/Qwen2.5-VL-7B-Instruct"
+
+def test_model_pair_creation():
+    pair = create_pair()
+
+    assert pair.pair_id == "qwen_pair"
+    assert pair.llm_model_key == "qwen_llm"
+    assert pair.vlm_model_key == "qwen_vlm"
 
 
-def test_model_pair_to_dict():
-    config = ModelPairConfig(
-        pair_id="qwen_pair",
-        llm_model="Qwen/Qwen2.5-7B-Instruct",
-        vlm_model="Qwen/Qwen2.5-VL-7B-Instruct",
+def test_llm_text_uses_llm_model_key():
+    pair = create_pair()
+
+    assert (
+        pair.model_key_for(
+            ExperimentCondition.LLM_TEXT
+        )
+        == "qwen_llm"
     )
 
-    assert config.to_dict() == {
+
+def test_vlm_text_uses_vlm_model_key():
+    pair = create_pair()
+
+    assert (
+        pair.model_key_for(
+            ExperimentCondition.VLM_TEXT
+        )
+        == "qwen_vlm"
+    )
+
+
+def test_vlm_image_uses_vlm_model_key():
+    pair = create_pair()
+
+    assert (
+        pair.model_key_for(
+            ExperimentCondition.VLM_IMAGE
+        )
+        == "qwen_vlm"
+    )
+
+
+def test_to_dict():
+    pair = create_pair()
+
+    assert pair.to_dict() == {
         "pair_id": "qwen_pair",
-        "llm_model": "Qwen/Qwen2.5-7B-Instruct",
-        "vlm_model": "Qwen/Qwen2.5-VL-7B-Instruct",
+        "llm_model_key": "qwen_llm",
+        "vlm_model_key": "qwen_vlm",
     }
-
-
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("pair_id", ""),
-        ("llm_model", ""),
-        ("vlm_model", ""),
-    ],
-)
-def test_model_pair_rejects_empty_values(field, value):
-    kwargs = {
-        "pair_id": "test",
-        "llm_model": "test-llm",
-        "vlm_model": "test-vlm",
-    }
-
-    kwargs[field] = value
-
-    with pytest.raises(ValueError):
-        ModelPairConfig(**kwargs)

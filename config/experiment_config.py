@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from config.model_config import GenerationConfig
 from config.model_pair import ModelPairConfig
-from evaluation.config import GenerationConfig
 from evaluation.experiment_condition import ExperimentCondition
 
 
@@ -71,7 +71,9 @@ class ExperimentConfig:
                 "temperature": self.generation.temperature,
                 "do_sample": self.generation.do_sample,
             },
-            "visual_manifest_path": str(self.visual_manifest_path),
+            "visual_manifest_path": str(
+                self.visual_manifest_path
+            ),
             "neutral_intro_prompt": self.neutral_intro_prompt,
             "conditions": [
                 condition.value
