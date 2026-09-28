@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from evaluation.config import GenerationConfig
+from config.model_config import GenerationConfig
 from evaluation.pipeline import ExperimentPipeline
 from evaluation.three_condition_runner import ThreeConditionRunner
 from models.base import ModelResponse
