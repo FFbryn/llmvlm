@@ -98,11 +98,15 @@ class DummyModelRunnerBuilder:
     """
 
     def build(self, config):
-        if config.model_type == "llm":
+        if config.model_key == "dummy_llm":
             return ModelRunner(DummyLLM())
 
-        return ModelRunner(DummyVLM())
+        if config.model_key == "dummy_vlm":
+            return ModelRunner(DummyVLM())
 
+        raise ValueError(
+            f"Model key dummy tidak dikenal: {config.model_key}"
+        )
 
 def create_manifest(
     path: Path,
