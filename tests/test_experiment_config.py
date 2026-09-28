@@ -1,10 +1,11 @@
+import sys
 from pathlib import Path
 
 import pytest
 
 from config.experiment_config import ExperimentConfig
+from config.model_config import GenerationConfig
 from config.model_pair import ModelPairConfig
-from evaluation.config import GenerationConfig
 from evaluation.experiment_condition import ExperimentCondition
 
 
@@ -15,8 +16,8 @@ def make_config(
 ):
     model_pair = ModelPairConfig(
         pair_id="qwen_pair",
-        llm_model="Qwen/Qwen2.5-7B-Instruct",
-        vlm_model="Qwen/Qwen2.5-VL-7B-Instruct",
+        llm_model_key="qwen_llm",
+        vlm_model_key="qwen_vlm",
     )
 
     generation = GenerationConfig(
@@ -67,34 +68,23 @@ def test_experiment_config_to_dict():
     result = config.to_dict()
 
     assert result["benchmark"] == "jbb"
-
     assert result["model_pair"]["pair_id"] == "qwen_pair"
-
-    assert result["model_pair"]["llm_model"] == (
-        "Qwen/Qwen2.5-7B-Instruct"
-    )
-
-    assert result["model_pair"]["vlm_model"] == (
-        "Qwen/Qwen2.5-VL-7B-Instruct"
-    )
-
+    assert result["model_pair"]["llm_model_key"] == "qwen_llm"
+    assert result["model_pair"]["vlm_model_key"] == "qwen_vlm"
     assert result["conditions"] == [
         "llm_text",
         "vlm_text",
         "vlm_image",
     ]
-
-    assert result["neutral_intro_prompt"] == (
-        "Please examine the image."
-    )
+    assert result["neutral_intro_prompt"] == "Please examine the image."
 
 
 def test_experiment_config_rejects_empty_benchmark():
     with pytest.raises(ValueError):
         model_pair = ModelPairConfig(
             pair_id="test",
-            llm_model="test-llm",
-            vlm_model="test-vlm",
+            llm_model_key="test-llm",
+            vlm_model_key="test-vlm",
         )
 
         ExperimentConfig(
