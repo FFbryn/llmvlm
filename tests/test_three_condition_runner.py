@@ -21,12 +21,18 @@ def make_pipeline(
         image_path=None,
         sample_id=None,
     ):
-        modality = "image" if image_path is not None else "text"
+        modality = (
+            "image"
+            if image_path is not None
+            else "text"
+        )
 
         return ModelResponse(
             text=f"{model_name} {modality} response",
             model_name=model_name,
             model_type=model_type,
+            sample_id=sample_id,
+            image_path=image_path,
         )
 
     runner.run.side_effect = fake_run
@@ -58,7 +64,9 @@ def test_three_condition_runner():
         vlm_pipeline=vlm_pipeline,
     )
 
-    image_path = Path("tests/fixtures/vlm_test_image.png")
+    image_path = Path(
+        "tests/fixtures/vlm_test_image.png"
+    )
 
     visual_sample = VisualSample(
         sample_id="sample-001",
@@ -120,7 +128,9 @@ def test_three_condition_runner_preserves_condition_metadata():
         vlm_pipeline=vlm_pipeline,
     )
 
-    image_path = Path("tests/fixtures/vlm_test_image.png")
+    image_path = Path(
+        "tests/fixtures/vlm_test_image.png"
+    )
 
     visual_sample = VisualSample(
         sample_id="sample-002",
@@ -143,21 +153,47 @@ def test_three_condition_runner_preserves_condition_metadata():
     assert result.vlm_text is not None
     assert result.vlm_image is not None
 
-    assert result.llm_text.metadata["condition"] == "llm_text"
-    assert result.vlm_text.metadata["condition"] == "vlm_text"
-    assert result.vlm_image.metadata["condition"] == "vlm_image"
-
-    assert result.vlm_image.metadata["source_prompt"] == (
-        "Original benchmark prompt"
+    assert (
+        result.llm_text.metadata["condition"]
+        == "llm_text"
     )
 
-    assert result.vlm_image.metadata["neutral_intro_prompt"] == (
-        "Please examine the image."
+    assert (
+        result.vlm_text.metadata["condition"]
+        == "vlm_text"
     )
 
-    assert result.llm_text.metadata["source"] == "test"
-    assert result.vlm_text.metadata["source"] == "test"
-    assert result.vlm_image.metadata["source"] == "test"
+    assert (
+        result.vlm_image.metadata["condition"]
+        == "vlm_image"
+    )
+
+    assert (
+        result.vlm_image.metadata["source_prompt"]
+        == "Original benchmark prompt"
+    )
+
+    assert (
+        result.vlm_image.metadata[
+            "neutral_intro_prompt"
+        ]
+        == "Please examine the image."
+    )
+
+    assert (
+        result.llm_text.metadata["source"]
+        == "test"
+    )
+
+    assert (
+        result.vlm_text.metadata["source"]
+        == "test"
+    )
+
+    assert (
+        result.vlm_image.metadata["source"]
+        == "test"
+    )
 
 
 def test_three_condition_runner_requires_visual_sample():
@@ -187,7 +223,8 @@ def test_three_condition_runner_requires_visual_sample():
         return
 
     raise AssertionError(
-        "Expected ValueError when visual_sample is missing."
+        "Expected ValueError when visual_sample "
+        "is missing."
     )
 
 
@@ -207,7 +244,9 @@ def test_three_condition_runner_requires_neutral_intro():
         vlm_pipeline=vlm_pipeline,
     )
 
-    image_path = Path("tests/fixtures/vlm_test_image.png")
+    image_path = Path(
+        "tests/fixtures/vlm_test_image.png"
+    )
 
     visual_sample = VisualSample(
         sample_id="sample-004",
@@ -227,5 +266,6 @@ def test_three_condition_runner_requires_neutral_intro():
         return
 
     raise AssertionError(
-        "Expected ValueError when neutral_intro_prompt is missing."
+        "Expected ValueError when "
+        "neutral_intro_prompt is missing."
     )
