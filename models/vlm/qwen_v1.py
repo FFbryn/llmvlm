@@ -18,6 +18,14 @@ class QwenVLM(BaseVLM):
     Adapter ini menghubungkan implementasi Qwen2.5-VL
     dengan abstraction BaseVLM yang digunakan oleh
     project LLM vs VLM.
+
+    Mendukung:
+
+        VLM_TEXT
+            -> text-only input
+
+        VLM_IMAGE
+            -> image + text input
     """
 
     DEFAULT_MODEL_NAME = (
@@ -69,7 +77,7 @@ class QwenVLM(BaseVLM):
 
     def _default_dtype(self) -> torch.dtype:
         """
-        Menentukan default dtype berdasarkan device.
+        Menentukan default torch dtype berdasarkan device.
         """
 
         if self.device == "cuda":
@@ -102,22 +110,51 @@ class QwenVLM(BaseVLM):
         self.model.to(self.device)
         self.model.eval()
 
-    def _generate_multimodal(
+    def _move_inputs_to_device(self, inputs):
+        """
+        Memindahkan processor output ke device model.
+        """
+
+        if hasattr(inputs, "to"):
+            return inputs.to(self.device)
+
+        return {
+            key: value.to(self.device)
+            if hasattr(value, "to")
+            else value
+            for key, value in inputs.items()
+        }
+
+    def _build_generation_kwargs(self) -> dict:
+        """
+        Membuat parameter generation secara konsisten.
+
+        Temperature hanya dikirim jika sampling aktif.
+        """
+
+        generation_kwargs = {
+            "max_new_tokens": self.max_new_tokens,
+            "do_sample": self.do_sample,
+        }
+
+        if self.do_sample:
+            generation_kwargs["temperature"] = (
+                self.temperature
+            )
+
+        return generation_kwargs
+
+    def _generate_text(
         self,
         prompt: str,
-        image_path: Optional[Path] = None,
         sample_id: Optional[str] = None,
     ) -> ModelResponse:
         """
-        Menghasilkan response dari Qwen2.5-VL.
+        Generate menggunakan Qwen2.5-VL dengan input text-only.
 
-        Input:
-            prompt      : text prompt
-            image_path  : path menuju image
-            sample_id   : ID sample eksperimen
+        Ini digunakan untuk kondisi:
 
-        Output:
-            ModelResponse
+            VLM_TEXT
         """
 
         if (
@@ -129,10 +166,74 @@ class QwenVLM(BaseVLM):
                 "Panggil load() sebelum generate()."
             )
 
-        if image_path is None:
-            raise ValueError(
-                "QwenVLM membutuhkan image_path "
-                "untuk multimodal generation."
+        messages = [
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ]
+
+        inputs = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        )
+
+        inputs = self._move_inputs_to_device(inputs)
+
+        generation_kwargs = (
+            self._build_generation_kwargs()
+        )
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                **generation_kwargs,
+            )
+
+        input_length = inputs["input_ids"].shape[1]
+
+        generated_tokens = outputs[
+            0,
+            input_length:
+        ]
+
+        response_text = self.processor.decode(
+            generated_tokens,
+            skip_special_tokens=True,
+        ).strip()
+
+        return ModelResponse(
+            text=response_text,
+            model_name=self.model_name,
+            model_type=self.model_type,
+            sample_id=sample_id,
+            image_path=None,
+        )
+
+    def _generate_multimodal(
+        self,
+        prompt: str,
+        image_path: Path,
+        sample_id: Optional[str] = None,
+    ) -> ModelResponse:
+        """
+        Generate menggunakan Qwen2.5-VL dengan image + text.
+
+        Ini digunakan untuk kondisi:
+
+            VLM_IMAGE
+        """
+
+        if (
+            self.model is None
+            or self.processor is None
+        ):
+            raise RuntimeError(
+                "QwenVLM belum di-load. "
+                "Panggil load() sebelum generate()."
             )
 
         image_path = Path(image_path)
@@ -166,22 +267,11 @@ class QwenVLM(BaseVLM):
             return_tensors="pt",
         )
 
-        inputs = {
-            key: value.to(self.device)
-            if hasattr(value, "to")
-            else value
-            for key, value in inputs.items()
-        }
+        inputs = self._move_inputs_to_device(inputs)
 
-        generation_kwargs = {
-            "max_new_tokens": self.max_new_tokens,
-            "do_sample": self.do_sample,
-        }
-
-        if self.do_sample:
-            generation_kwargs["temperature"] = (
-                self.temperature
-            )
+        generation_kwargs = (
+            self._build_generation_kwargs()
+        )
 
         with torch.no_grad():
             outputs = self.model.generate(
@@ -211,7 +301,7 @@ class QwenVLM(BaseVLM):
 
     def unload(self) -> None:
         """
-        Menghapus model dan processor dari memory.
+        Membebaskan model dan processor dari memory.
         """
 
         self.model = None

@@ -15,9 +15,13 @@ class LLaVAVLM(BaseVLM):
     """
     Adapter untuk LLaVA-1.5-7B.
 
-    Adapter ini menghubungkan model LLaVA dengan
-    abstraction BaseVLM yang digunakan dalam
-    project LLM vs VLM.
+    Mendukung:
+
+        VLM_TEXT
+            -> text-only input
+
+        VLM_IMAGE
+            -> image + text input
     """
 
     DEFAULT_MODEL_NAME = (
@@ -69,7 +73,7 @@ class LLaVAVLM(BaseVLM):
 
     def _default_dtype(self) -> torch.dtype:
         """
-        Menentukan default dtype berdasarkan device.
+        Menentukan default torch dtype berdasarkan device.
         """
 
         if self.device == "cuda":
@@ -102,22 +106,49 @@ class LLaVAVLM(BaseVLM):
         self.model.to(self.device)
         self.model.eval()
 
-    def _generate_multimodal(
+    def _move_inputs_to_device(self, inputs):
+        """
+        Memindahkan processor output ke device model.
+        """
+
+        if hasattr(inputs, "to"):
+            return inputs.to(self.device)
+
+        return {
+            key: value.to(self.device)
+            if hasattr(value, "to")
+            else value
+            for key, value in inputs.items()
+        }
+
+    def _build_generation_kwargs(self) -> dict:
+        """
+        Membuat parameter generation secara konsisten.
+        """
+
+        generation_kwargs = {
+            "max_new_tokens": self.max_new_tokens,
+            "do_sample": self.do_sample,
+        }
+
+        if self.do_sample:
+            generation_kwargs["temperature"] = (
+                self.temperature
+            )
+
+        return generation_kwargs
+
+    def _generate_text(
         self,
         prompt: str,
-        image_path: Optional[Path] = None,
         sample_id: Optional[str] = None,
     ) -> ModelResponse:
         """
-        Menghasilkan response dari LLaVA.
+        Generate LLaVA dengan input text-only.
 
-        Input:
-            prompt      : text prompt
-            image_path  : path menuju image
-            sample_id   : ID sample eksperimen
+        Digunakan untuk kondisi:
 
-        Output:
-            ModelResponse
+            VLM_TEXT
         """
 
         if (
@@ -129,10 +160,70 @@ class LLaVAVLM(BaseVLM):
                 "Panggil load() sebelum generate()."
             )
 
-        if image_path is None:
-            raise ValueError(
-                "LLaVAVLM membutuhkan image_path "
-                "untuk multimodal generation."
+        formatted_prompt = (
+            "USER: "
+            + prompt
+            + "\nASSISTANT:"
+        )
+
+        inputs = self.processor(
+            text=formatted_prompt,
+            return_tensors="pt",
+        )
+
+        inputs = self._move_inputs_to_device(inputs)
+
+        generation_kwargs = (
+            self._build_generation_kwargs()
+        )
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                **generation_kwargs,
+            )
+
+        input_length = inputs["input_ids"].shape[1]
+
+        generated_tokens = outputs[
+            0,
+            input_length:
+        ]
+
+        response_text = self.processor.decode(
+            generated_tokens,
+            skip_special_tokens=True,
+        ).strip()
+
+        return ModelResponse(
+            text=response_text,
+            model_name=self.model_name,
+            model_type=self.model_type,
+            sample_id=sample_id,
+            image_path=None,
+        )
+
+    def _generate_multimodal(
+        self,
+        prompt: str,
+        image_path: Path,
+        sample_id: Optional[str] = None,
+    ) -> ModelResponse:
+        """
+        Generate LLaVA menggunakan image + text.
+
+        Digunakan untuk kondisi:
+
+            VLM_IMAGE
+        """
+
+        if (
+            self.model is None
+            or self.processor is None
+        ):
+            raise RuntimeError(
+                "LLaVAVLM belum di-load. "
+                "Panggil load() sebelum generate()."
             )
 
         image_path = Path(image_path)
@@ -142,16 +233,22 @@ class LLaVAVLM(BaseVLM):
                 f"Image tidak ditemukan: {image_path}"
             )
 
+        from PIL import Image
+
+        image = Image.open(
+            image_path
+        ).convert("RGB")
+
         conversation = [
             {
                 "role": "user",
                 "content": [
                     {
-                        "type": "text",
-                        "text": prompt,
+                        "type": "image",
                     },
                     {
-                        "type": "image",
+                        "type": "text",
+                        "text": prompt,
                     },
                 ],
             },
@@ -164,32 +261,17 @@ class LLaVAVLM(BaseVLM):
             )
         )
 
-        from PIL import Image
-
-        image = Image.open(image_path).convert("RGB")
-
         inputs = self.processor(
             images=image,
             text=prompt_text,
             return_tensors="pt",
         )
 
-        inputs = {
-            key: value.to(self.device)
-            if hasattr(value, "to")
-            else value
-            for key, value in inputs.items()
-        }
+        inputs = self._move_inputs_to_device(inputs)
 
-        generation_kwargs = {
-            "max_new_tokens": self.max_new_tokens,
-            "do_sample": self.do_sample,
-        }
-
-        if self.do_sample:
-            generation_kwargs["temperature"] = (
-                self.temperature
-            )
+        generation_kwargs = (
+            self._build_generation_kwargs()
+        )
 
         with torch.no_grad():
             outputs = self.model.generate(
@@ -219,7 +301,7 @@ class LLaVAVLM(BaseVLM):
 
     def unload(self) -> None:
         """
-        Menghapus model dan processor dari memory.
+        Membebaskan model dan processor dari memory.
         """
 
         self.model = None
