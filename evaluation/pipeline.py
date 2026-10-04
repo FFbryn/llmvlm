@@ -27,6 +27,15 @@ class ExperimentPipeline:
         - jailbreak detection
         - transferability analysis
         - benchmark-specific scoring
+
+    Lifecycle model:
+        - run_sample() menggunakan lifecycle single-run:
+              load -> generate -> unload
+
+        - run_sample_loaded() mengasumsikan runner
+          sudah di-load dan tidak melakukan load/unload.
+
+          Method kedua digunakan untuk batch experiment.
     """
 
     def __init__(
@@ -43,11 +52,12 @@ class ExperimentPipeline:
         self.device = device
         self.torch_dtype = torch_dtype
 
-    def run_sample(
+    def _build_result(
         self,
         *,
         sample_id: str,
         prompt: str,
+        response,
         behavior: Optional[str] = None,
         category: Optional[str] = None,
         image_path: Optional[Path] = None,
@@ -55,18 +65,12 @@ class ExperimentPipeline:
         metadata: Optional[dict] = None,
     ) -> ExperimentResult:
         """
-        Menjalankan satu sample.
+        Mengubah ModelResponse menjadi ExperimentResult.
 
-        Method ini menggunakan runner yang sudah disediakan.
+        Method ini tidak mengatur lifecycle model.
         """
 
-        response = self.runner.run(
-            prompt=prompt,
-            image_path=image_path,
-            sample_id=sample_id,
-        )
-
-        result = ExperimentResult.from_model_response(
+        return ExperimentResult.from_model_response(
             sample_id=sample_id,
             benchmark=self.benchmark,
             prompt=prompt,
@@ -80,4 +84,103 @@ class ExperimentPipeline:
             metadata=metadata,
         )
 
-        return result
+    def run_sample(
+        self,
+        *,
+        sample_id: str,
+        prompt: str,
+        behavior: Optional[str] = None,
+        category: Optional[str] = None,
+        image_path: Optional[Path] = None,
+        input_modality: str = "text",
+        metadata: Optional[dict] = None,
+    ) -> ExperimentResult:
+        """
+        Menjalankan satu sample menggunakan lifecycle
+        single-run.
+
+        Lifecycle:
+
+            load
+            generate
+            unload
+
+        Method ini dipertahankan untuk:
+            - single-sample smoke test
+            - backward compatibility
+            - eksekusi eksperimen individual
+        """
+
+        response = self.runner.run(
+            prompt=prompt,
+            image_path=image_path,
+            sample_id=sample_id,
+        )
+
+        return self._build_result(
+            sample_id=sample_id,
+            prompt=prompt,
+            response=response,
+            behavior=behavior,
+            category=category,
+            image_path=image_path,
+            input_modality=input_modality,
+            metadata=metadata,
+        )
+
+    def run_sample_loaded(
+        self,
+        *,
+        sample_id: str,
+        prompt: str,
+        behavior: Optional[str] = None,
+        category: Optional[str] = None,
+        image_path: Optional[Path] = None,
+        input_modality: str = "text",
+        metadata: Optional[dict] = None,
+    ) -> ExperimentResult:
+        """
+        Menjalankan satu sample menggunakan runner
+        yang SUDAH di-load.
+
+        Lifecycle TIDAK dilakukan di method ini.
+
+        Artinya method ini hanya:
+
+            generate
+            ↓
+            ExperimentResult
+
+        Method ini digunakan oleh batch experiment agar
+        model tidak di-load dan di-unload untuk setiap sample.
+
+        Caller bertanggung jawab memastikan:
+
+            self.runner.load()
+
+        sudah dilakukan sebelum method ini dipanggil.
+        """
+
+        if not self.runner.loaded:
+            raise RuntimeError(
+                "ModelRunner belum di-load. "
+                "Gunakan runner.load() sebelum "
+                "memanggil run_sample_loaded()."
+            )
+
+        response = self.runner.generate(
+            prompt=prompt,
+            image_path=image_path,
+            sample_id=sample_id,
+        )
+
+        return self._build_result(
+            sample_id=sample_id,
+            prompt=prompt,
+            response=response,
+            behavior=behavior,
+            category=category,
+            image_path=image_path,
+            input_modality=input_modality,
+            metadata=metadata,
+        )

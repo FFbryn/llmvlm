@@ -1,4 +1,5 @@
-from typing import Callable, Optional
+from contextlib import contextmanager
+from typing import Callable, Iterator, Optional
 
 from config.experiment_config import ExperimentConfig
 from config.model_config_builder import ModelConfigBuilder
@@ -32,6 +33,7 @@ class ExperimentExecutor:
         ThreeConditionResult
 
     Executor tidak melakukan:
+
         - classification
         - jailbreak detection
         - transferability analysis
@@ -121,7 +123,7 @@ class ExperimentExecutor:
         """
         Membuat ThreeConditionRunner.
 
-        Pada tahap ini model belum dijalankan.
+        Pada tahap ini model belum di-load.
         """
 
         llm_config, vlm_config = self._build_model_configs()
@@ -155,12 +157,61 @@ class ExperimentExecutor:
             vlm_pipeline=vlm_pipeline,
         )
 
+    @contextmanager
+    def batch_session(
+        self,
+    ) -> Iterator[ThreeConditionRunner]:
+        """
+        Membuka session eksperimen batch.
+
+        Lifecycle:
+
+            build runners
+                ↓
+            load LLM
+                ↓
+            load VLM
+                ↓
+            yield runner
+                ↓
+            unload VLM
+                ↓
+            unload LLM
+
+        Model hanya di-load sekali untuk seluruh
+        batch session.
+
+        Jika terjadi exception, model tetap akan
+        di-unload melalui finally.
+        """
+
+        runner = self.build_runner()
+
+        llm_runner = runner.llm_pipeline.runner
+        vlm_runner = runner.vlm_pipeline.runner
+
+        try:
+            llm_runner.load()
+
+            try:
+                vlm_runner.load()
+
+                yield runner
+
+            finally:
+                vlm_runner.unload()
+
+        finally:
+            llm_runner.unload()
+
     def run_sample(
         self,
         sample_id: str,
     ) -> ThreeConditionResult:
         """
         Menjalankan satu sample pada tiga kondisi.
+
+        Method ini mempertahankan lifecycle single-sample.
         """
 
         sample = self._find_dataset_sample(
@@ -187,6 +238,59 @@ class ExperimentExecutor:
         runner = self.build_runner()
 
         return runner.run_sample(
+            sample_id=sample.sample_id,
+            prompt=sample.prompt,
+            category=sample.category,
+            visual_sample=visual_sample,
+            neutral_intro_prompt=(
+                self.config.neutral_intro_prompt
+            ),
+            metadata={
+                "benchmark": sample.benchmark,
+                "executor": "ExperimentExecutor",
+            },
+        )
+
+    def run_sample_loaded(
+        self,
+        runner: ThreeConditionRunner,
+        sample_id: str,
+    ) -> ThreeConditionResult:
+        """
+        Menjalankan satu sample menggunakan
+        ThreeConditionRunner yang modelnya sudah
+        di-load melalui batch_session().
+
+        Method ini tidak melakukan load/unload.
+        """
+
+        if runner is None:
+            raise ValueError(
+                "runner tidak boleh None."
+            )
+
+        sample = self._find_dataset_sample(
+            sample_id
+        )
+
+        visual_samples = self._load_visual_samples()
+
+        if sample_id not in visual_samples:
+            raise ValueError(
+                "Visual sample tidak ditemukan untuk "
+                f"sample_id={sample_id}"
+            )
+
+        visual_sample = visual_samples[sample_id]
+
+        if visual_sample.benchmark != sample.benchmark:
+            raise ValueError(
+                "Benchmark dataset dan visual manifest "
+                "tidak cocok untuk sample "
+                f"{sample_id}."
+            )
+
+        return runner.run_sample_loaded(
             sample_id=sample.sample_id,
             prompt=sample.prompt,
             category=sample.category,

@@ -210,6 +210,44 @@ def test_pipeline_preserves_runtime_metadata():
         "float32"
     )
 
+def test_run_sample_loaded_requires_loaded_runner():
+    from pathlib import Path
+
+    from config.model_config import GenerationConfig
+    from evaluation.pipeline import ExperimentPipeline
+
+    class DummyRunner:
+        loaded = False
+
+        def generate(
+            self,
+            prompt,
+            image_path=None,
+            sample_id=None,
+        ):
+            raise AssertionError(
+                "generate() tidak boleh dipanggil."
+            )
+
+    pipeline = ExperimentPipeline(
+        runner=DummyRunner(),
+        generation=GenerationConfig(),
+        benchmark="jbb",
+    )
+
+    try:
+        pipeline.run_sample_loaded(
+            sample_id="sample_1",
+            prompt="test",
+            input_modality="text",
+        )
+    except RuntimeError as exc:
+        assert "belum di-load" in str(exc)
+    else:
+        raise AssertionError(
+            "run_sample_loaded() seharusnya "
+            "menolak runner yang belum loaded."
+        )
 
 def main():
     print("Running ExperimentPipeline tests...")
