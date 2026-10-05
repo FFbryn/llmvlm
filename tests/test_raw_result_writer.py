@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from evaluation.raw_experiment_result_writer import RawExperimentResultWriter
+from evaluation.raw_result_writer import RawExperimentResultWriter
 from evaluation.result import ExperimentResult
 from evaluation.three_condition_result import ThreeConditionResult
 
