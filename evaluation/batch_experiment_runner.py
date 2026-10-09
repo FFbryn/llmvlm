@@ -1,7 +1,6 @@
-
 import json
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Set
 
 from benchmark_data.schema import BenchmarkSample
 from evaluation.experiment_executor import ExperimentExecutor
@@ -13,200 +12,213 @@ class BatchExperimentRunner:
     Menjalankan eksperimen untuk banyak sample.
 
     Fitur:
-        - Persistent model lifecycle melalui batch_session().
-        - Resume berdasarkan sample_id dalam raw JSONL.
-        - Skip sample yang sudah selesai.
-        - Menyimpan hasil segera setelah sample selesai.
-        - Melanjutkan batch ketika satu sample gagal.
-        - Pemilihan sample opsional berdasarkan sample_ids.
+    - Menjalankan sample secara berurutan.
+    - Melanjutkan eksperimen menggunakan resume.
+    - Hanya melewati sample yang memiliki tiga kondisi lengkap.
+    - Memvalidasi hasil sebelum menyimpannya.
+    - Melaporkan jumlah sample yang selesai, dilewati, dan gagal.
 
-    Kompatibilitas:
-        runner.run(samples)
-        runner.run()
-
-    run() tanpa argumen menggunakan dataset_samples milik
-    ExperimentExecutor, jika atribut tersebut tersedia.
+    Catatan:
+    - Resume memeriksa kelengkapan struktur hasil mentah.
+    - Classification tidak diwajibkan karena dilakukan pada tahap terpisah.
+    - File output yang sudah ada tidak dihapus secara otomatis.
     """
+
+    REQUIRED_CONDITIONS = (
+        "llm_text",
+        "vlm_text",
+        "vlm_image",
+    )
 
     def __init__(
         self,
         executor: ExperimentExecutor,
-        output_path: Path,
+        output_path: str | Path,
         resume: bool = True,
         sample_ids: Optional[Iterable[str]] = None,
-    ):
+    ) -> None:
         self.executor = executor
         self.output_path = Path(output_path)
         self.resume = resume
 
-        # None berarti semua sample akan diproses.
-        # Daftar kosong berarti tidak ada sample yang dipilih.
         self.sample_ids = (
-            None
-            if sample_ids is None
-            else list(dict.fromkeys(str(sid) for sid in sample_ids))
+            set(sample_ids) if sample_ids is not None else None
         )
 
-        self.writer = RawExperimentResultWriter(
-            self.output_path
-        )
+        self.writer = RawExperimentResultWriter(self.output_path)
 
-    def _load_completed_sample_ids(self) -> set[str]:
+    def _load_completed_sample_ids(self) -> Set[str]:
         """
-        Membaca sample_id dari raw result JSONL untuk resume.
+        Membaca JSONL dan mengidentifikasi sample yang benar-benar
+        memiliki ketiga kondisi eksperimen dengan struktur valid.
+
+        File yang berisi JSON rusak, record tidak lengkap, atau ID
+        duplikat akan menghasilkan error agar masalah data tidak
+        tersembunyi.
         """
+        completed_ids: Set[str] = set()
 
         if not self.output_path.exists():
-            return set()
+            return completed_ids
 
-        completed_ids: set[str] = set()
-
-        with self.output_path.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
+        with self.output_path.open("r", encoding="utf-8") as file:
             for line_number, line in enumerate(file, start=1):
-                line = line.strip()
-
-                if not line:
+                if not line.strip():
                     continue
 
                 try:
                     record = json.loads(line)
                 except json.JSONDecodeError as exc:
                     raise ValueError(
-                        "Raw result JSONL tidak valid "
-                        f"pada baris {line_number}."
+                        "JSONL tidak valid pada "
+                        f"{self.output_path}, baris {line_number}: {exc}"
                     ) from exc
 
                 if not isinstance(record, dict):
                     raise ValueError(
-                        "Record raw result harus berupa object JSON "
-                        f"pada baris {line_number}."
+                        "Record JSONL harus berupa object/dict pada "
+                        f"baris {line_number}."
                     )
 
                 sample_id = record.get("sample_id")
 
-                if sample_id is None or str(sample_id).strip() == "":
+                if not isinstance(sample_id, str) or not sample_id.strip():
                     raise ValueError(
-                        "Record raw result tidak memiliki "
-                        f"sample_id pada baris {line_number}."
+                        "sample_id tidak valid pada "
+                        f"{self.output_path}, baris {line_number}."
                     )
 
-                completed_ids.add(str(sample_id))
+                # Pastikan semua kondisi tersedia dan berbentuk object.
+                for condition in self.REQUIRED_CONDITIONS:
+                    condition_result = record.get(condition)
+
+                    if not isinstance(condition_result, dict):
+                        raise ValueError(
+                            f"Record sample {sample_id!r} pada baris "
+                            f"{line_number} tidak lengkap: "
+                            f"{condition!r} harus berupa object/dict. "
+                            "Jangan gunakan record ini untuk resume."
+                        )
+
+                    nested_sample_id = condition_result.get("sample_id")
+
+                    if nested_sample_id != sample_id:
+                        raise ValueError(
+                            f"sample_id pada kondisi {condition!r} "
+                            f"tidak cocok dengan sample_id utama "
+                            f"untuk sample {sample_id!r}, "
+                            f"baris {line_number}."
+                        )
+
+                if sample_id in completed_ids:
+                    raise ValueError(
+                        f"sample_id duplikat {sample_id!r} ditemukan "
+                        f"pada {self.output_path}, baris {line_number}. "
+                        "Gunakan salinan file yang sudah diaudit atau "
+                        "output baru setelah memeriksa hasil sebelumnya."
+                    )
+
+                completed_ids.add(sample_id)
 
         return completed_ids
 
     def _resolve_samples(
         self,
-        samples: Optional[Iterable[BenchmarkSample]],
+        samples: Optional[Iterable[BenchmarkSample]] = None,
     ) -> list[BenchmarkSample]:
         """
         Menentukan sample yang akan dijalankan.
-
-        Prioritas:
-        1. samples yang diberikan langsung ke run(samples).
-        2. executor.dataset_samples jika run() tanpa argumen.
-
-        Jika sample_ids ditentukan, hanya sample dengan ID tersebut
-        yang dipilih. ID yang tidak ditemukan akan memunculkan error.
         """
+        source_samples = (
+            list(samples)
+            if samples is not None
+            else list(self.executor.dataset_samples)
+        )
 
-        if samples is None:
-            samples = getattr(
-                self.executor,
-                "dataset_samples",
-                None,
-            )
+        seen_ids: Set[str] = set()
 
-        if samples is None:
-            raise ValueError(
-                "Daftar sample tidak tersedia. Panggil "
-                "runner.run(samples), atau pastikan executor "
-                "memiliki atribut dataset_samples."
-            )
+        for sample in source_samples:
+            sample_id = sample.sample_id
 
-        available_samples = list(samples)
-
-        # Tanpa filter berarti semua sample dipakai.
-        if self.sample_ids is None:
-            return available_samples
-
-        samples_by_id: dict[str, BenchmarkSample] = {}
-
-        for sample in available_samples:
-            sample_id = str(sample.sample_id)
-
-            if sample_id in samples_by_id:
+            if sample_id in seen_ids:
                 raise ValueError(
-                    "Ditemukan sample_id duplikat dalam dataset: "
-                    f"{sample_id}"
+                    f"sample_id duplikat dalam dataset: {sample_id!r}"
                 )
 
-            samples_by_id[sample_id] = sample
+            seen_ids.add(sample_id)
 
-        missing_ids = [
-            sample_id
-            for sample_id in self.sample_ids
-            if sample_id not in samples_by_id
-        ]
+        if self.sample_ids is None:
+            return source_samples
+
+        available_ids = {
+            sample.sample_id for sample in source_samples
+        }
+
+        missing_ids = self.sample_ids - available_ids
 
         if missing_ids:
             raise ValueError(
-                "sample_ids yang diminta tidak ditemukan dalam "
-                f"dataset: {missing_ids}"
+                "Sample ID yang diminta tidak ditemukan dalam dataset: "
+                f"{sorted(missing_ids)}"
             )
 
-        # Mengikuti urutan sample_ids yang diminta.
         return [
-            samples_by_id[sample_id]
-            for sample_id in self.sample_ids
+            sample
+            for sample in source_samples
+            if sample.sample_id in self.sample_ids
         ]
 
+    @staticmethod
     def _validate_result(
-        self,
-        *,
-        expected_sample_id: str,
+        sample: BenchmarkSample,
         result,
     ) -> None:
         """
-        Memastikan hasil eksperimen valid sebelum disimpan.
+        Memastikan hasil eksperimen memiliki tiga kondisi lengkap.
         """
-
         if result is None:
             raise ValueError(
-                "ExperimentExecutor mengembalikan result=None."
+                f"Eksperimen sample {sample.sample_id!r} "
+                "menghasilkan None."
             )
 
-        if str(result.sample_id) != str(expected_sample_id):
+        if result.sample_id != sample.sample_id:
             raise ValueError(
-                "sample_id hasil eksperimen tidak cocok: "
-                f"expected={expected_sample_id}, "
-                f"actual={result.sample_id}"
+                "sample_id hasil tidak cocok: "
+                f"diharapkan {sample.sample_id!r}, "
+                f"didapat {result.sample_id!r}."
             )
 
         if not result.complete:
+            missing_conditions = [
+                condition
+                for condition in BatchExperimentRunner.REQUIRED_CONDITIONS
+                if getattr(result, condition, None) is None
+            ]
+
             raise ValueError(
-                "ExperimentResult belum lengkap untuk "
-                f"sample_id={expected_sample_id}."
+                f"Hasil sample {sample.sample_id!r} belum lengkap. "
+                f"Kondisi yang belum tersedia: {missing_conditions}"
             )
+
+        # Periksa kecocokan ID pada setiap kondisi.
+        for condition in BatchExperimentRunner.REQUIRED_CONDITIONS:
+            condition_result = getattr(result, condition)
+
+            if condition_result.sample_id != sample.sample_id:
+                raise ValueError(
+                    f"sample_id pada kondisi {condition!r} "
+                    f"tidak cocok untuk sample {sample.sample_id!r}."
+                )
 
     def run(
         self,
         samples: Optional[Iterable[BenchmarkSample]] = None,
-    ) -> dict[str, int]:
+    ) -> dict:
         """
-        Menjalankan batch experiment.
-
-        Pemakaian:
-            runner.run(dataset_samples)
-            runner.run()
-
-        Sample yang sudah ada dalam output dilewati jika
-        resume=True.
+        Menjalankan batch eksperimen dan mengembalikan ringkasan.
         """
-
-        selected_samples = self._resolve_samples(samples)
+        resolved_samples = self._resolve_samples(samples)
 
         completed_ids = (
             self._load_completed_sample_ids()
@@ -214,109 +226,77 @@ class BatchExperimentRunner:
             else set()
         )
 
-        total = len(selected_samples)
+        total = len(resolved_samples)
         skipped = 0
         completed = 0
         failed = 0
+        failures = []
 
-        print("=" * 60)
-        print("BATCH EXPERIMENT")
-        print("=" * 60)
-        print(f"Total sample : {total}")
-        print(f"Resume       : {self.resume}")
-        print(f"Output       : {self.output_path}")
-        print("=" * 60)
+        # Jangan otomatis menghapus atau menimpa output lama.
+        # Jika resume=False, gunakan output_path baru yang kosong.
+        if not self.resume and self.output_path.exists():
+            if self.output_path.stat().st_size > 0:
+                raise FileExistsError(
+                    f"Output sudah ada dan tidak kosong: "
+                    f"{self.output_path}. Untuk menjalankan batch baru "
+                    "dengan resume=False, gunakan path output baru "
+                    "agar hasil sebelumnya tidak tercampur."
+                )
 
-        # Jika tidak ada sample terpilih, tidak perlu memuat model.
-        if total == 0:
-            summary = {
-                "total": 0,
-                "skipped": 0,
-                "completed": 0,
-                "failed": 0,
-            }
-            print("Tidak ada sample untuk diproses.")
-            return summary
+        with self.executor.batch_session() as runner:
+            for sample in resolved_samples:
+                sample_id = sample.sample_id
 
-        try:
-            with self.executor.batch_session() as runner:
-                for index, sample in enumerate(
-                    selected_samples,
-                    start=1,
-                ):
-                    sample_id = str(sample.sample_id)
+                if self.resume and sample_id in completed_ids:
+                    skipped += 1
+                    print(f"[SKIP] {sample_id}: hasil lengkap sudah ada.")
+                    continue
 
-                    print(
-                        f"\n[{index}/{total}] "
-                        f"sample_id={sample_id}"
+                try:
+                    result = self.executor.run_sample_loaded(
+                        runner,
+                        sample_id,
                     )
 
-                    # Resume: lewati sample yang sudah tercatat.
-                    if (
-                        self.resume
-                        and sample_id in completed_ids
-                    ):
-                        print(
-                            "  -> SKIP "
-                            "(hasil sudah tersedia)"
-                        )
-                        skipped += 1
-                        continue
+                    self._validate_result(sample, result)
 
-                    try:
-                        result = self.executor.run_sample_loaded(
-                            runner,
-                            sample_id,
-                        )
+                    self.writer.write(result)
+                    completed_ids.add(sample_id)
+                    completed += 1
 
-                        self._validate_result(
-                            expected_sample_id=sample_id,
-                            result=result,
-                        )
+                    print(
+                        f"[OK] {sample_id}: "
+                        "llm_text, vlm_text, vlm_image selesai."
+                    )
 
-                        # Pastikan direktori output tersedia.
-                        self.output_path.parent.mkdir(
-                            parents=True,
-                            exist_ok=True,
-                        )
+                except Exception as exc:
+                    failed += 1
+                    failures.append(
+                        {
+                            "sample_id": sample_id,
+                            "error": str(exc),
+                        }
+                    )
 
-                        # Simpan segera setelah sample selesai.
-                        self.writer.write(result)
-
-                        completed_ids.add(sample_id)
-                        completed += 1
-
-                        print("  -> COMPLETED")
-
-                    except Exception as exc:
-                        failed += 1
-
-                        print("  -> FAILED")
-                        print(
-                            f"     {type(exc).__name__}: {exc}"
-                        )
-
-                        # Kegagalan satu sample tidak menghentikan batch.
-                        continue
-
-        except Exception:
-            print("\nBATCH SESSION GAGAL.")
-            raise
+                    print(f"[ERROR] {sample_id}: {exc}")
 
         summary = {
             "total": total,
             "skipped": skipped,
             "completed": completed,
             "failed": failed,
+            "failures": failures,
+            "output_path": str(self.output_path),
         }
 
         print("\n" + "=" * 60)
-        print("BATCH SUMMARY")
+        print("BATCH EXPERIMENT SUMMARY")
         print("=" * 60)
-        print(f"Total     : {summary['total']}")
-        print(f"Skipped   : {summary['skipped']}")
-        print(f"Completed : {summary['completed']}")
-        print(f"Failed    : {summary['failed']}")
+        print(f"Total samples : {total}")
+        print(f"Skipped       : {skipped}")
+        print(f"Completed     : {completed}")
+        print(f"Failed        : {failed}")
+        print(f"Output        : {self.output_path}")
         print("=" * 60)
 
         return summary
