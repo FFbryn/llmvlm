@@ -5,6 +5,7 @@ from config.experiment_config import ExperimentConfig
 from config.model_config import GenerationConfig
 from config.model_pair import ModelPairConfig
 from evaluation.batch_experiment_runner import BatchExperimentRunner
+from evaluation.experiment_condition import ExperimentCondition
 from evaluation.experiment_executor import ExperimentExecutor
 from preprocessing.visual_manifest_loader import VisualManifestLoader
 
@@ -105,7 +106,7 @@ def main():
     print("\n[4] Building ExperimentExecutor...")
 
     from config.model_config_builder import ModelConfigBuilder
-    from models.runner_builder import ModelRunnerBuilder
+    from evaluation.model_runner_builder import ModelRunnerBuilder
 
     model_config_builder = ModelConfigBuilder(
         model_pair=config.model_pair,
