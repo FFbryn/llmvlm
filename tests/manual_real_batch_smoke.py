@@ -2,9 +2,8 @@ from pathlib import Path
 
 from benchmark_data.loader import DatasetLoader
 from config.experiment_config import ExperimentConfig
-from config.experiment_condition import ExperimentCondition
-from config.generation_config import GenerationConfig
-from config.model_pair_config import ModelPairConfig
+from config.model_config import GenerationConfig
+from config.model_pair import ModelPairConfig
 from evaluation.batch_experiment_runner import BatchExperimentRunner
 from evaluation.experiment_executor import ExperimentExecutor
 from preprocessing.visual_manifest_loader import VisualManifestLoader
