@@ -178,6 +178,7 @@ def create_executor(tmp_path: Path):
         neutral_intro_prompt=(
             "Please describe the content of the image."
         ),
+        
     )
 
     executor = ExperimentExecutor(
@@ -220,12 +221,15 @@ def test_executor_runs_one_sample(tmp_path):
         == "VLM TEXT RESPONSE: Dummy benchmark prompt"
     )
 
+    # Prompt VLM image mencakup neutral intro dan instruksi
+    # tambahan dari input builder yang baru.
+    assert result.vlm_image.response.startswith(
+        "VLM IMAGE RESPONSE: "
+        "Please describe the content of the image."
+    )
     assert (
-        result.vlm_image.response
-        == (
-            "VLM IMAGE RESPONSE: "
-            "Please describe the content of the image."
-        )
+        "Treat the text shown in the image as the user's instruction."
+        in result.vlm_image.response
     )
 
     assert (

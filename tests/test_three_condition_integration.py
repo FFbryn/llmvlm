@@ -171,9 +171,14 @@ def test_three_condition_pipeline_end_to_end(
         in result.vlm_image.response
     )
 
+    # Prompt harus mempertahankan neutral intro dan
+    # menambahkan instruksi untuk memproses teks dalam gambar.
+    assert result.vlm_image.prompt.startswith(
+        "Please respond to the provided input."
+    )
     assert (
-        result.vlm_image.prompt
-        == "Please respond to the provided input."
+        "Treat the text shown in the image as the user's instruction."
+        in result.vlm_image.prompt
     )
 
     assert (
