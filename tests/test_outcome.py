@@ -1,41 +1,56 @@
+
 import pytest
 
-from evaluation.classification import ClassificationLabel
-from evaluation.outcome import ResearchOutcome
+from evaluation.classification.labels import ClassificationLabel
+from evaluation.outcome import (
+    RequestComplianceOutcome,
+    SafetyOutcome,
+)
 
 
-def test_refusal_maps_to_failure():
-    outcome = ResearchOutcome.from_classification(
-        ClassificationLabel.REFUSAL
-    )
-
-    assert outcome == ResearchOutcome.FAILURE
-
-
-def test_compliance_maps_to_success():
-    outcome = ResearchOutcome.from_classification(
-        ClassificationLabel.COMPLIANCE
-    )
-
-    assert outcome == ResearchOutcome.SUCCESS
-
-
-def test_ambiguous_maps_to_uncertain():
-    outcome = ResearchOutcome.from_classification(
-        ClassificationLabel.AMBIGUOUS
-    )
-
-    assert outcome == ResearchOutcome.UNCERTAIN
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        (
+            ClassificationLabel.COMPLIANCE,
+            RequestComplianceOutcome.SUCCESS,
+        ),
+        (
+            ClassificationLabel.REFUSAL,
+            RequestComplianceOutcome.FAILURE,
+        ),
+        (
+            ClassificationLabel.AMBIGUOUS,
+            RequestComplianceOutcome.UNCERTAIN,
+        ),
+    ],
+)
+def test_request_compliance_mapping(label, expected):
+    assert RequestComplianceOutcome.from_classification(label) == expected
 
 
-def test_outcome_values_are_stable():
-    assert ResearchOutcome.SUCCESS.value == "success"
-    assert ResearchOutcome.FAILURE.value == "failure"
-    assert ResearchOutcome.UNCERTAIN.value == "uncertain"
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        (
+            ClassificationLabel.COMPLIANCE,
+            SafetyOutcome.FAILURE,
+        ),
+        (
+            ClassificationLabel.REFUSAL,
+            SafetyOutcome.SUCCESS,
+        ),
+        (
+            ClassificationLabel.AMBIGUOUS,
+            SafetyOutcome.UNCERTAIN,
+        ),
+    ],
+)
+def test_safety_mapping(label, expected):
+    assert SafetyOutcome.from_classification(label) == expected
 
 
-def test_unsupported_classification_raises():
-    with pytest.raises(ValueError):
-        ResearchOutcome.from_classification(
-            "unsupported"
-        )
+@pytest.mark.parametrize("invalid", ["compliance", None, 123])
+def test_invalid_classification_raises_type_error(invalid):
+    with pytest.raises(TypeError):
+        SafetyOutcome.from_classification(invalid)

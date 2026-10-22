@@ -1,1254 +1,352 @@
 # LLM vs LVLM
 
-## README — Model Installation & Integration
+**Pewarisan Kerentanan Jailbreak dari LLM ke Vision-Language Model**
+
+Project penelitian AI Security dan AI Safety untuk mengevaluasi apakah
+outcome perilaku yang diamati pada benchmark teks tetap muncul ketika
+instruksi benchmark yang sama disajikan melalui modality visual kepada
+Vision-Language Model (VLM).
+
+> **Status project:** pipeline dasar sedang dikembangkan dan diuji.
+> Status eksperimen penuh, cakupan seluruh pasangan model, integrasi
+> anotasi manusia, dan hasil transferability harus dikonfirmasi dari
+> artefak terbaru. Jangan menafsirkan jumlah sampel yang berhasil dimuat
+> sebagai jumlah sampel yang sudah selesai dievaluasi.
+
+## Daftar isi
+
+-   [Tujuan penelitian](#tujuan-penelitian)
+-   [Pertanyaan penelitian](#pertanyaan-penelitian)
+-   [Prinsip metodologis](#prinsip-metodologis)
+-   [Struktur project](#struktur-project)
+-   [Pipeline eksperimen](#pipeline-eksperimen)
+-   [Menyiapkan lingkungan](#menyiapkan-lingkungan)
+-   [Menjalankan pengujian](#menjalankan-pengujian)
+-   [Menjalankan eksperimen](#menjalankan-eksperimen)
+-   [Format hasil](#format-hasil)
+-   [Analisis](#analisis)
+-   [Reproducibility dan audit](#reproducibility-dan-audit)
+-   [Status dan pekerjaan berikutnya](#status-dan-pekerjaan-berikutnya)
+
+## Tujuan penelitian
+
+Project ini mengevaluasi **transferability**, yaitu sejauh mana outcome
+dari suatu instruksi benchmark pada kondisi teks tetap muncul ketika
+instruksi yang sama direpresentasikan dalam bentuk gambar dan dievaluasi
+oleh VLM.
+
+Project ini bukan untuk mengembangkan jailbreak baru. Input perilaku
+yang diuji harus berasal dari benchmark yang telah ditetapkan dalam
+protokol penelitian.
+
+## Pertanyaan penelitian
+
+1.  Berapa banyak perilaku yang berhasil pada LLM berbasis teks yang
+    juga berhasil pada VLM pasangannya?
+2.  Apakah terdapat kasus yang gagal atau ditolak pada kondisi teks
+    tetapi berhasil pada kondisi visual?
+3.  Apakah guardrail dan mekanisme refusal tetap efektif ketika input
+    diberikan melalui modality visual?
+
+## Prinsip metodologis
+
+-   **Kesetaraan input:** kondisi teks dan visual harus
+    merepresentasikan instruksi benchmark yang sama.
+-   **Pairing per sampel:** perbandingan dilakukan berdasarkan ID sampel
+    dan pasangan model yang valid.
+-   **Pemisahan outcome:** refusal, compliance/keberhasilan, respons
+    ambigu, dan execution error tidak boleh dicampur tanpa aturan
+    eksplisit.
+-   **Tidak mengarang hasil:** angka hasil hanya boleh dilaporkan dari
+    artefak eksperimen yang benar-benar dihasilkan.
+-   **Human annotation:** jika digunakan, simpan label, pedoman anotasi,
+    identitas anotator dalam bentuk yang sesuai kebijakan penelitian,
+    serta provenance label.
+-   **Reproducibility:** simpan versi kode, konfigurasi, model, prompt
+    template, versi dataset, dan log.
+-   **Responsible research:** gunakan benchmark yang disetujui dalam
+    protokol; dokumentasikan temuan sebagai evaluasi keamanan, bukan
+    sebagai panduan untuk membuat serangan baru.
+
+## Struktur project
+
+Struktur berikut merupakan gambaran komponen yang dibahas selama
+pengembangan. Sesuaikan dengan isi repository aktual; daftar ini bukan
+jaminan bahwa setiap file masih ada atau sudah selesai.
+
+``` text
+.
+├── benchmark_data/
+│   ├── loader.py
+│   ├── schema.py
+│   ├── adapters/
+│   │   ├── advbench.py
+│   │   └── harmbench.py
+│   └── results/
+│       └── jbb_100/
+├── evaluation/
+│   ├── input_builder.py
+│   ├── experiment_executor.py
+│   ├── raw_result_writer.py
+│   ├── batch_experiment_runner.py
+│   ├── outcome.py
+│   ├── classification/
+│   │   └── labels.py
+│   └── analysis/
+│       └── analyze_outcomes.py
+└── tests/
+    ├── test_experiment_executor.py
+    └── test_three_condition_integration.py
+```
+
+### Tanggung jawab komponen
+
+  -------------------------------------------------------------------------------
+  Komponen                                    Tanggung jawab
+  ------------------------------------------- -----------------------------------
+  `benchmark_data/loader.py`                  Memuat data benchmark
 
-**Project:** Pewarisan Kerentanan Jailbreak dari LLM ke Vision-Language Model
-**Working Name:** LLM vs LVLM
-**Research Area:** AI Security / AI Safety
-**Current Phase:** Model Layer — LLM & VLM Integration
+  `benchmark_data/schema.py`                  Mendefinisikan bentuk data sampel
 
----
+  `benchmark_data/adapters/`                  Mengadaptasi format dataset sumber
+                                              ke schema internal
 
-# 1. Konteks Project
+  `evaluation/input_builder.py`               Menyusun input sesuai kondisi
+                                              eksperimen
 
-Project ini merupakan penelitian akademik dengan tujuan mengetahui apakah perilaku/kerentanan jailbreak yang berhasil pada **Large Language Model (LLM)** berbasis teks tetap berhasil ketika perilaku yang sama direpresentasikan dalam bentuk visual dan dievaluasi menggunakan **Vision-Language Model (VLM/LVLM)**.
+  `evaluation/experiment_executor.py`         Menjalankan satu percobaan melalui
+                                              konfigurasi/model yang dipilih
 
-Pertanyaan penelitian utama:
+  `evaluation/raw_result_writer.py`           Menulis hasil mentah ke penyimpanan
 
-1. Berapa banyak behavior yang berhasil pada LLM berbasis teks yang juga berhasil pada VLM pasangannya?
-2. Apakah terdapat kasus yang gagal atau ditolak pada input teks tetapi berhasil ketika input yang sama direpresentasikan secara visual?
-3. Apakah mekanisme guardrail dan refusal pada model berbasis teks tetap efektif ketika input diberikan melalui modality visual?
+  `evaluation/batch_experiment_runner.py`     Mengatur eksekusi untuk banyak
+                                              sampel
 
----
+  `evaluation/classification/labels.py`       Mendefinisikan label klasifikasi
 
-# 2. Prinsip Penting Penelitian
+  `evaluation/outcome.py`                     Merepresentasikan outcome
+                                              eksperimen
 
-Project ini **bukan project untuk membuat jailbreak baru**.
+  `evaluation/analysis/analyze_outcomes.py`   Mengagregasi dan menganalisis hasil
+                                              yang tersimpan
 
-Behavior berbahaya untuk eksperimen harus berasal dari benchmark/dataset yang telah ditentukan dalam project.
+  `tests/`                                    Menguji perilaku komponen dan
+                                              integrasi
+  -------------------------------------------------------------------------------
 
-Jangan:
+## Pipeline eksperimen
 
-* membuat harmful behavior baru secara manual;
-* membuat jailbreak prompt baru;
-* mengoptimalkan prompt agar model melewati guardrail;
-* mengubah benchmark secara langsung;
-* menggunakan hasil smoke test sebagai hasil eksperimen penelitian.
+Alur konseptual yang diharapkan:
 
-Fokus penelitian adalah:
+1.  **Load benchmark:** baca sampel dan validasi schema.
+2.  **Load visual manifest:** hubungkan ID benchmark ke artefak gambar
+    yang tepat.
+3.  **Build conditions:** buat input untuk kondisi eksperimen sesuai
+    protokol yang ditetapkan.
+4.  **Execute:** jalankan setiap sampel pada model dan kondisi yang
+    direncanakan.
+5.  **Write raw results:** simpan respons, metadata, status, dan error
+    tanpa kehilangan jejak asalnya.
+6.  **Classify:** beri label outcome dengan aturan yang terdokumentasi.
+7.  **Human review:** bila termasuk protokol, anotasi atau audit sampel
+    yang relevan.
+8.  **Analyze:** hitung metrik per pasangan sampel/model dan hasil
+    agregat.
+9.  **Report:** buat tabel, grafik, interpretasi, serta keterbatasan.
 
-> **Transferability** — kemampuan suatu behavior yang berhasil pada modality teks untuk tetap menghasilkan outcome yang sama ketika direpresentasikan melalui modality visual.
+### Catatan penting tentang kondisi visual
 
----
+Prompt pengantar yang hanya meminta model mendeskripsikan gambar
+berisiko mengukur kemampuan image captioning, bukan respons terhadap
+instruksi benchmark di dalam gambar. Pastikan protokol kondisi visual
+dirancang untuk mengevaluasi instruksi target dan disejajarkan dengan
+kondisi pembanding. Jangan mengubah input builder sekadar untuk membuat
+smoke test tampak berhasil.
 
-# 3. Benchmark yang Digunakan
+## Menyiapkan lingkungan
 
-Benchmark yang telah ditentukan dalam project:
+Contoh perintah berikut ditujukan untuk Windows PowerShell dengan
+lingkungan Conda bernama `llmvlm`, sebagaimana digunakan dalam sesi
+pengembangan. Sesuaikan nama lingkungan jika berbeda.
 
-1. JBB-Behaviors
-2. AdvBench
-3. HarmBench
-4. XSTest
-
-Benchmark akan digunakan pada tahap eksperimen setelah model layer dan pipeline dasar selesai.
-
-Pada tahap **model installation/integration**, gunakan prompt benign untuk smoke test.
-
----
-
-# 4. Model yang Digunakan
-
-## 4.1 LLM
-
-### Qwen2.5-7B-Instruct
-
-Model ID:
-
-```text
-Qwen/Qwen2.5-7B-Instruct
-```
-
-Implementasi:
-
-```text
-models/llm/qwen.py
-```
-
-Class:
-
-```python
-QwenLLM
-```
-
----
-
-### Vicuna-1.5-7B
-
-Model ID:
-
-```text
-lmsys/vicuna-7b-v1.5
-```
-
-Implementasi:
-
-```text
-models/llm/vicuna.py
-```
-
-Class:
-
-```python
-VicunaLLM
-```
-
----
-
-# 5. VLM
-
-## 5.1 Qwen2.5-VL-7B-Instruct
-
-Model ID:
-
-```text
-Qwen/Qwen2.5-VL-7B-Instruct
-```
-
-Implementasi:
-
-```text
-models/vlm/qwen_v1.py
-```
-
-Class:
-
-```python
-QwenVLM
-```
-
-Komponen utama:
-
-```python
-AutoProcessor
-Qwen2_5_VLForConditionalGeneration
-```
-
----
-
-## 5.2 LLaVA-1.5-7B
-
-Checkpoint Hugging Face yang digunakan:
-
-```text
-llava-hf/llava-1.5-7b-hf
-```
-
-Implementasi:
-
-```text
-models/vlm/llava.py
-```
-
-Class:
-
-```python
-LLaVAVLM
-```
-
-Komponen utama:
-
-```python
-AutoProcessor
-LlavaForConditionalGeneration
-```
-
----
-
-# 6. Arsitektur Model Layer
-
-Struktur abstraction:
-
-```text
-                    BaseModel
-                       |
-             +---------+---------+
-             |                   |
-          BaseLLM              BaseVLM
-             |                   |
-       +-----+-----+       +-----+------+
-       |           |       |            |
-     Qwen       Vicuna   Qwen-VL      LLaVA
-```
-
-Tujuan abstraction:
-
-Pipeline eksperimen tidak boleh bergantung langsung pada implementasi internal masing-masing model.
-
-Pipeline cukup menggunakan interface umum:
-
-```python
-model.load()
-
-response = model.generate(
-    prompt=prompt,
-    image_path=image_path,
-    sample_id=sample_id,
-)
-
-model.unload()
-```
-
----
-
-# 7. Struktur Repository Saat Ini
-
-Struktur model layer:
-
-```text
-models/
-├── base.py
-│
-├── llm/
-│   ├── __init__.py
-│   ├── base.py
-│   ├── qwen.py
-│   └── vicuna.py
-│
-└── vlm/
-    ├── __init__.py
-    ├── base.py
-    ├── qwen_v1.py
-    └── llava.py
-```
-
-Test:
-
-```text
-tests/
-├── fixtures/
-│   ├── dummy_dataset.csv
-│   └── vlm_test_image.png
-│
-├── test_llm_base.py
-├── test_qwen.py
-├── test_vicuna.py
-├── test_vlm_base.py
-├── test_qwen_vlm.py
-└── test_llava.py
-```
-
-Manual smoke tests:
-
-```text
-tests/
-├── manual_qwen_smoke.py
-├── manual_vicuna_smoke.py
-├── manual_qwen_vlm_smoke.py
-└── manual_llava_smoke.py
-```
-
----
-
-# 8. `BaseModel`
-
-File:
-
-```text
-models/base.py
-```
-
-Menyediakan abstraction dasar untuk semua model.
-
-Komponen utama:
-
-```python
-ModelResponse
-BaseModel
-```
-
-`ModelResponse` memiliki struktur:
-
-```python
-@dataclass
-class ModelResponse:
-    text: str
-    model_name: str
-    model_type: str
-    sample_id: Optional[str] = None
-    image_path: Optional[Path] = None
-    metadata: Optional[dict] = None
-```
-
-Tujuan:
-
-Response dari LLM dan VLM memiliki struktur yang konsisten.
-
-Contoh:
-
-```text
-LLM response
-    |
-    +-- text
-    +-- model_name
-    +-- model_type = llm
-    +-- sample_id
-    +-- image_path = None
-```
-
-Sedangkan:
-
-```text
-VLM response
-    |
-    +-- text
-    +-- model_name
-    +-- model_type = vlm
-    +-- sample_id
-    +-- image_path
-```
-
----
-
-# 9. `BaseLLM`
-
-File:
-
-```text
-models/llm/base.py
-```
-
-`BaseLLM` merupakan subclass dari:
-
-```python
-BaseModel
-```
-
-LLM hanya menerima input text.
-
-Jika:
-
-```python
-image_path != None
-```
-
-maka `BaseLLM.generate()` harus menolak input tersebut dengan `ValueError`.
-
-Interface:
-
-```python
-model.generate(
-    prompt=prompt,
-    sample_id=sample_id,
-)
-```
-
-Subclass mengimplementasikan:
-
-```python
-_generate_text()
-```
-
----
-
-# 10. `BaseVLM`
-
-File:
-
-```text
-models/vlm/base.py
-```
-
-`BaseVLM` merupakan subclass dari:
-
-```python
-BaseModel
-```
-
-VLM dapat menerima:
-
-```text
-text
-```
-
-atau:
-
-```text
-image + text
-```
-
-Interface:
-
-```python
-model.generate(
-    prompt=prompt,
-    image_path=image_path,
-    sample_id=sample_id,
-)
-```
-
-Subclass mengimplementasikan:
-
-```python
-_generate_multimodal()
-```
-
-Untuk eksperimen visual utama, VLM harus menerima image representation.
-
----
-
-# 11. Qwen LLM
-
-File:
-
-```text
-models/llm/qwen.py
-```
-
-Class:
-
-```python
-QwenLLM
-```
-
-Model:
-
-```text
-Qwen/Qwen2.5-7B-Instruct
-```
-
-Komponen:
-
-```python
-AutoTokenizer
-AutoModelForCausalLM
-```
-
-Alur:
-
-```text
-prompt
-   |
-   v
-AutoTokenizer
-   |
-   v
-Qwen2.5-7B-Instruct
-   |
-   v
-generated tokens
-   |
-   v
-decoded text
-   |
-   v
-ModelResponse
-```
-
-Generation default:
-
-```python
-max_new_tokens=256
-temperature=0.0
-do_sample=False
-```
-
-Untuk smoke test digunakan konfigurasi lebih kecil:
-
-```python
-max_new_tokens=32
-do_sample=False
-```
-
----
-
-# 12. Vicuna LLM
-
-File:
-
-```text
-models/llm/vicuna.py
-```
-
-Class:
-
-```python
-VicunaLLM
-```
-
-Model:
-
-```text
-lmsys/vicuna-7b-v1.5
-```
-
-Komponen:
-
-```python
-AutoTokenizer
-AutoModelForCausalLM
-```
-
-Alur:
-
-```text
-prompt
-   |
-   v
-Vicuna conversation format
-   |
-   v
-Tokenizer
-   |
-   v
-Vicuna
-   |
-   v
-generated tokens
-   |
-   v
-ModelResponse
-```
-
-Smoke test menggunakan prompt benign.
-
----
-
-# 13. Qwen VLM
-
-File:
-
-```text
-models/vlm/qwen_v1.py
-```
-
-Class:
-
-```python
-QwenVLM
-```
-
-Model:
-
-```text
-Qwen/Qwen2.5-VL-7B-Instruct
-```
-
-Komponen utama:
-
-```python
-AutoProcessor
-Qwen2_5_VLForConditionalGeneration
-```
-
-Alur:
-
-```text
-             prompt
-                |
-                |
-image ----------+
-                |
-                v
-         AutoProcessor
-                |
-                v
-       Qwen2.5-VL-7B
-                |
-                v
-          text response
-                |
-                v
-          ModelResponse
-```
-
-`image_path` harus tersedia pada multimodal generation.
-
-Jika image tidak diberikan:
-
-```python
-ValueError
-```
-
-Jika image tidak ditemukan:
-
-```python
-FileNotFoundError
-```
-
----
-
-# 14. LLaVA VLM
-
-File:
-
-```text
-models/vlm/llava.py
-```
-
-Class:
-
-```python
-LLaVAVLM
-```
-
-Model:
-
-```text
-llava-hf/llava-1.5-7b-hf
-```
-
-Komponen utama:
-
-```python
-AutoProcessor
-LlavaForConditionalGeneration
-```
-
-Alur:
-
-```text
-prompt
-   +
-image
-   |
-   v
-conversation
-   |
-   v
-apply_chat_template()
-   |
-   v
-AutoProcessor
-   |
-   v
-LLaVA
-   |
-   v
-generated tokens
-   |
-   v
-ModelResponse
-```
-
----
-
-# 15. Lifecycle Model
-
-Semua adapter model harus memiliki lifecycle:
-
-```text
-create
-  |
-  v
-load()
-  |
-  v
-generate()
-  |
-  v
-unload()
-```
-
-Jangan mengasumsikan model sudah loaded setelah constructor.
-
-Contoh:
-
-```python
-model = QwenLLM()
-
-model.load()
-
-response = model.generate(
-    prompt="...",
-    sample_id="..."
-)
-
-model.unload()
-```
-
-Jika `generate()` dipanggil sebelum `load()`, adapter harus memberikan `RuntimeError`.
-
----
-
-# 16. Smoke Test
-
-Smoke test adalah pengujian sederhana untuk memastikan model dan adapter dapat berjalan.
-
-Smoke test BUKAN eksperimen jailbreak.
-
-Gunakan prompt benign seperti:
-
-```text
-Explain what machine learning is in one short sentence.
-```
-
-atau untuk VLM:
-
-```text
-Describe this image in one short sentence.
-```
-
----
-
-# 17. Test Files
-
-## Qwen LLM
-
-```text
-tests/test_qwen.py
-```
-
-Run:
-
-```bash
-pytest tests/test_qwen.py -v -m slow
-```
-
-Manual:
-
-```bash
-python tests/manual_qwen_smoke.py
-```
-
----
-
-## Vicuna
-
-```text
-tests/test_vicuna.py
-```
-
-Run:
-
-```bash
-pytest tests/test_vicuna.py -v -m slow
-```
-
-Manual:
-
-```bash
-python tests/manual_vicuna_smoke.py
-```
-
----
-
-## BaseVLM
-
-```text
-tests/test_vlm_base.py
-```
-
-Run:
-
-```bash
-pytest tests/test_vlm_base.py -v
-```
-
----
-
-## Qwen VLM
-
-```text
-tests/test_qwen_vlm.py
-```
-
-Run:
-
-```bash
-pytest tests/test_qwen_vlm.py -v -m slow
-```
-
-Manual:
-
-```bash
-python tests/manual_qwen_vlm_smoke.py
-```
-
----
-
-## LLaVA
-
-```text
-tests/test_llava.py
-```
-
-Run:
-
-```bash
-pytest tests/test_llava.py -v -m slow
-```
-
-Manual:
-
-```bash
-python tests/manual_llava_smoke.py
-```
-
----
-
-# 18. Regression Test
-
-Untuk menjalankan seluruh test yang tidak membutuhkan model besar:
-
-```bash
-pytest -v -m "not slow"
-```
-
-Test yang membutuhkan loading model ditandai:
-
-```python
-@pytest.mark.slow
-```
-
-Sehingga test cepat dan test model dapat dipisahkan.
-
----
-
-# 19. Fixture Image
-
-Untuk smoke test VLM digunakan:
-
-```text
-tests/fixtures/vlm_test_image.png
-```
-
-Image ini hanya digunakan untuk testing adapter.
-
-Image fixture:
-
-* bukan benchmark;
-* bukan harmful content;
-* bukan data eksperimen;
-* tidak digunakan untuk menghitung transferability.
-
-Tujuannya hanya memastikan image pipeline berfungsi.
-
----
-
-# 20. Status Penelitian
-
-Pada awal conversation baru, jangan menganggap semua test berikut sudah benar-benar dijalankan.
-
-Status awal berdasarkan implementasi yang telah dibuat:
-
-```text
-BaseModel              IMPLEMENTED
-BaseLLM                IMPLEMENTED
-QwenLLM                IMPLEMENTED
-VicunaLLM              IMPLEMENTED
-BaseVLM                IMPLEMENTED
-QwenVLM                IMPLEMENTED
-LLaVAVLM               IMPLEMENTED
-```
-
-Status eksekusi test harus dianggap:
-
-```text
-UNKNOWN
-```
-
-kecuali user memberikan output terminal aktual.
-
-Jangan mengubah `UNKNOWN` menjadi `PASSED` tanpa bukti.
-
----
-
-# 21. Hal yang Harus Diverifikasi Jika Ada Error
-
-Jika model gagal dijalankan, periksa secara berurutan:
-
-### 1. Python environment
-
-```bash
+``` powershell
+conda activate llmvlm
 python --version
+python -m pytest --version
 ```
 
-### 2. PyTorch
+Pastikan dependency project telah dipasang sesuai berkas dependency yang
+benar-benar ada di repository, misalnya `requirements.txt` atau
+`pyproject.toml`. Jangan membuat berkas dependency baru berdasarkan
+tebakan; periksa konfigurasi project yang tersedia.
 
-```bash
-python -c "import torch; print(torch.__version__)"
+## Menjalankan pengujian
+
+Mulai dari tes komponen inti:
+
+``` powershell
+python -m pytest tests/test_experiment_executor.py -v
 ```
 
-### 3. CUDA
+Kemudian tes integrasi kondisi eksperimen:
 
-```bash
-python -c "import torch; print(torch.cuda.is_available())"
+``` powershell
+python -m pytest tests/test_three_condition_integration.py -v
 ```
 
-### 4. Transformers
+Jika kedua file tersebut ada, tes dapat dijalankan bersama:
 
-```bash
-python -c "import transformers; print(transformers.__version__)"
+``` powershell
+python -m pytest tests/test_experiment_executor.py tests/test_three_condition_integration.py -v
 ```
 
-### 5. Import model
+Untuk menjalankan semua tes yang terdeteksi:
 
-Qwen:
-
-```bash
-python -c "from models.llm.qwen import QwenLLM; print('OK')"
+``` powershell
+python -m pytest -v
 ```
 
-Vicuna:
-
-```bash
-python -c "from models.llm.vicuna import VicunaLLM; print('OK')"
-```
-
-Qwen VLM:
-
-```bash
-python -c "from models.vlm.qwen_v1 import QwenVLM; print('OK')"
-```
-
-LLaVA:
-
-```bash
-python -c "from models.vlm.llava import LLaVAVLM; print('OK')"
-```
-
----
-
-# 22. Prinsip Debugging
-
-Jika terjadi error, jangan langsung mengubah seluruh arsitektur.
-
-Identifikasi terlebih dahulu kategori error:
-
-```text
-Import Error
-     |
-     +-- package
-     +-- class
-     +-- path
-
-Model Loading Error
-     |
-     +-- model ID
-     +-- network/cache
-     +-- tokenizer/processor
-     +-- memory
-
-CUDA Error
-     |
-     +-- VRAM
-     +-- CUDA
-     +-- dtype
-     +-- device
-
-Generation Error
-     |
-     +-- input format
-     +-- processor
-     +-- generation parameters
-
-Image Error
-     |
-     +-- path
-     +-- file
-     +-- format
-     +-- PIL
-```
-
-Perbaiki masalah yang paling spesifik terlebih dahulu.
-
----
-
-# 23. Hal yang Jangan Dilakukan
-
-Jangan:
-
-```text
-❌ mengubah benchmark untuk memperbaiki hasil
-❌ membuat jailbreak prompt baru
-❌ memasukkan harmful prompt secara manual
-❌ menganggap response tertentu sebagai jailbreak tanpa classifier
-❌ menyimpulkan transferability dari smoke test
-❌ membandingkan model berdasarkan satu prompt
-❌ mengubah model architecture hanya karena output berbeda
-```
-
-Smoke test hanya menjawab:
-
-> "Apakah adapter/model dapat berjalan?"
-
-Smoke test tidak menjawab:
-
-> "Apakah behavior berhasil ditransfer?"
-
----
-
-# 24. Perbedaan Smoke Test dan Eksperimen
-
-## Smoke Test
-
-Tujuan:
-
-```text
-Apakah model dapat berjalan?
-```
-
-Input:
-
-```text
-Benign prompt
-```
-
-Output:
-
-```text
-ModelResponse
-```
-
----
-
-## Eksperimen
-
-Tujuan:
-
-```text
-Apakah behavior dari benchmark
-memiliki outcome yang sama pada
-LLM dan VLM?
-```
-
-Input:
-
-```text
-Benchmark sample
-```
-
-Output:
-
-```text
-LLM outcome
-VLM outcome
-Paired comparison
-```
-
-Eksperimen baru dilakukan setelah pipeline dan model layer stabil.
-
----
-
-# 25. Target Arsitektur Setelah Model Layer Selesai
-
-```text
-                         BENCHMARK
-                             |
-                             v
-                    Dataset / Sample
-                             |
-                             v
-                    Normalization Layer
-                             |
-               +-------------+-------------+
-               |                           |
-               v                           v
-          Text Representation       Visual Representation
-               |                           |
-               v                           v
-              LLM                         VLM
-               |                           |
-        +------+-------+             +-----+------+
-        |              |             |            |
-      Qwen           Vicuna       Qwen-VL       LLaVA
-        |              |             |            |
-        +------+-------+             +-----+------+
-               |                           |
-               v                           v
-          LLM Response                VLM Response
-               |                           |
-               v                           v
-        Response Classifier         Response Classifier
-               |                           |
-               +-------------+-------------+
-                             |
-                             v
-                    Paired Comparison
-                             |
-                             v
-                   Transferability Analysis
-```
-
----
-
-# 26. Langkah Berikutnya
-
-Setelah semua adapter model selesai, **jangan langsung menjalankan benchmark**.
-
-Langkah berikutnya:
-
-```text
-1. Model Registry / Factory
-2. Unified Model Runner
-3. Configuration management
-4. Model execution result schema
-5. Experiment runner
-6. Dataset → Model pipeline
-7. Response classification
-8. Paired comparison
-9. Transferability analysis
-```
-
-Urutan yang direkomendasikan:
-
-```text
-BaseModel
-   ↓
-BaseLLM / BaseVLM
-   ↓
-4 Model Adapter
-   ↓
-Model Factory / Registry
-   ↓
-Unified Runner
-   ↓
-Experiment Pipeline
-```
-
----
-
-# 27. Instruksi untuk Conversation Berikutnya
-
-Jika README ini digunakan sebagai konteks pada conversation baru, assistant harus:
-
-1. Membaca README terlebih dahulu.
-2. Menganggap project berada pada tahap **Model Layer — LLM & VLM Integration**.
-3. Tidak mengulang penjelasan dasar yang sudah ada kecuali diperlukan.
-4. Tidak langsung menjalankan benchmark harmful.
-5. Tidak membuat jailbreak baru.
-6. Menggunakan benchmark yang telah ditentukan.
-7. Memisahkan:
-
-   * fakta,
-   * hasil test aktual,
-   * interpretasi,
-   * hipotesis,
-   * asumsi,
-   * keterbatasan.
-8. Jika membutuhkan informasi model/API yang dapat berubah, verifikasi sumber resmi terlebih dahulu.
-9. Jika user memberikan error terminal, diagnosis error tersebut terlebih dahulu sebelum melanjutkan arsitektur.
-10. Jika adapter model sudah stabil, lanjutkan ke **Model Factory / Registry**.
-
----
-
-# 28. Expected Next Task
-
-Task berikutnya:
-
-## Implementasi Model Factory / Registry
-
-Target:
-
-```text
-models/
-├── base.py
-├── factory.py          ← NEXT
-│
-├── llm/
-│   ├── base.py
-│   ├── qwen.py
-│   └── vicuna.py
-│
-└── vlm/
-    ├── base.py
-    ├── qwen_v1.py
-    └── llava.py
-```
-
-Tujuan:
-
-Pipeline dapat melakukan:
-
-```python
-model = create_model("qwen_llm")
-```
-
-atau:
-
-```python
-model = create_model("vicuna_llm")
-```
-
-atau:
-
-```python
-model = create_model("qwen_vlm")
-```
-
-atau:
-
-```python
-model = create_model("llava_vlm")
-```
-
-tanpa perlu meng-import setiap model secara manual pada experiment runner.
-
-Setelah Factory selesai, lanjutkan ke **Unified Model Runner**.
-
----
-
-# 29. Catatan Reproducibility
-
-Semua eksperimen nantinya harus mencatat setidaknya:
-
-```text
-sample_id
-benchmark
-behavior/category
-model_name
-model_type
-input modality
-prompt/input representation
-image_path jika ada
-generation configuration
-response
-classification
-timestamp
-```
-
-Jika parameter generation digunakan:
-
-```text
-max_new_tokens
-temperature
-do_sample
-dtype
-device
-```
-
-juga perlu dicatat.
-
-Tujuannya agar hasil eksperimen dapat direproduksi dan dibandingkan secara konsisten.
-
----
-
-# 30. Prinsip Utama Project
-
-Jangan mengubah pertanyaan:
-
-> "Apakah behavior yang sudah tersedia pada benchmark dapat berpindah dari text modality ke visual modality?"
-
-menjadi:
-
-> "Bagaimana cara membuat jailbreak berhasil?"
-
-Project ini adalah **evaluasi transferability**, bukan pengembangan jailbreak.
-
-Fokus utama:
-
-```text
-Benchmark
-   ↓
-Controlled Representation
-   ↓
-LLM vs VLM
-   ↓
-Response Classification
-   ↓
-Paired Comparison
-   ↓
-Transferability
-```
-
-**End of README**
+Simpan output tes lengkap sebagai bukti audit. Status sukses satu tes
+tidak membuktikan bahwa seluruh pipeline atau eksperimen penuh berhasil.
+
+## Menjalankan eksperimen
+
+Nama skrip dan argumen eksekusi harus diverifikasi terhadap repository
+terbaru. Riwayat pengembangan membahas runner batch serta skrip manual
+seperti `manual_full_batch.py` dan smoke test batch. Sebelum menjalankan
+eksperimen, periksa:
+
+1.  Apakah konfigurasi model mengarah ke model yang dimaksud?
+2.  Apakah kredensial dan akses model tersedia melalui mekanisme yang
+    aman?
+3.  Apakah manifest gambar cocok dengan ID benchmark?
+4.  Apakah kondisi eksperimen telah ditetapkan dan didokumentasikan?
+5.  Apakah output diarahkan ke direktori hasil yang benar?
+6.  Apakah skrip dapat dilanjutkan atau dijalankan ulang tanpa menimpa
+    hasil yang sudah ada?
+
+Jalankan smoke test dengan subset kecil terlebih dahulu. Setelah hasil
+mentah dan pemetaan input lolos audit, jalankan batch penuh dengan
+konfigurasi yang dibekukan. Gunakan perintah aktual yang tercantum dalam
+skrip/repository; README ini sengaja tidak mengarang argumen CLI yang
+belum terverifikasi.
+
+## Format hasil
+
+Runner membahas penggunaan **JSONL (JSON Lines)**, yaitu satu objek JSON
+per baris. Bentuk field yang persis harus mengikuti implementasi
+`raw_result_writer.py` dan schema aktual. Secara konseptual, satu record
+hasil sebaiknya dapat ditelusuri ke:
+
+-   ID sampel benchmark;
+-   nama/ID dataset dan versinya;
+-   model serta kondisi eksperimen;
+-   referensi visual bila berlaku;
+-   respons mentah model;
+-   status eksekusi dan metadata error;
+-   waktu atau metadata eksekusi yang relevan;
+-   label otomatis dan/atau label manusia, bila tersedia, dengan sumber
+    label yang jelas.
+
+Jangan menganggap daftar di atas sebagai nama field JSONL yang sudah
+pasti. Periksa writer dan satu contoh output aktual untuk mengetahui
+nama, tipe, serta field wajib yang benar.
+
+### Validasi jumlah hasil
+
+Bandingkan jumlah percobaan yang direncanakan dengan jumlah record yang
+berhasil ditulis, lalu hitung terpisah:
+
+-   percobaan selesai dengan respons valid;
+-   refusal;
+-   respons ambigu atau tidak dapat diklasifikasikan;
+-   execution error/timeout;
+-   percobaan yang belum dijalankan.
+
+Satu sampel dapat menghasilkan beberapa record jika diuji pada beberapa
+model atau kondisi. Karena itu, jumlah baris tidak selalu sama dengan
+jumlah sampel unik.
+
+## Analisis
+
+`evaluation/analysis/analyze_outcomes.py` merupakan komponen analisis
+yang dibahas dalam pengembangan. Sebelum menggunakan hasilnya dalam
+laporan, verifikasi sumber input, aturan klasifikasi, denominator,
+penanganan data hilang, dan apakah anotasi manusia dibaca oleh program.
+
+Metrik yang direncanakan:
+
+-   **Transfer rate bersyarat:** proporsi sampel yang berhasil pada
+    visual di antara sampel yang berhasil pada teks dan mempunyai
+    pasangan visual valid.
+-   **Visual-only success:** kasus ketika kondisi visual berhasil,
+    tetapi kondisi teks pasangannya tidak berhasil.
+-   **Refusal rate:** proporsi respons valid yang diberi label refusal,
+    dengan perlakuan terhadap error dan label ambigu yang dinyatakan
+    jelas.
+-   **Over-refusal rate:** proporsi permintaan aman yang keliru ditolak;
+    memerlukan data aman berlabel dan tidak bisa diukur hanya dari
+    benchmark berbahaya.
+
+Finalisasi definisi operasional sebelum menghitung angka. Sertakan
+jumlah absolut, persentase, denominator, aturan eksklusi, dan jumlah
+kasus yang tidak dapat diklasifikasikan.
+
+## Reproducibility dan audit
+
+Untuk setiap run, dokumentasikan:
+
+-   commit atau versi kode;
+-   versi Python dan dependency;
+-   dataset dan versinya;
+-   daftar model dan konfigurasi yang digunakan;
+-   prompt template serta kondisi eksperimen;
+-   jumlah sampel yang direncanakan dan dijalankan;
+-   lokasi hasil mentah dan log;
+-   aturan retry serta penanganan error;
+-   versi classifier dan definisi label;
+-   status human annotation, jika digunakan.
+
+Jangan menyimpan API key atau rahasia lain ke repository maupun file
+hasil.
+
+## Status dan pekerjaan berikutnya
+
+Berdasarkan catatan pengembangan yang tersedia:
+
+-   Loader JBB pernah melaporkan 100 sampel tersedia pada smoke test.
+-   Visual manifest pernah melaporkan 100 sampel tersedia pada smoke
+    test.
+-   Pengguna melaporkan pengujian executor telah passed.
+-   Batch runner, penulisan JSONL, klasifikasi, dan analisis outcome
+    telah menjadi bagian dari implementasi yang dibahas.
+
+Hal-hal berikut **belum dapat dianggap selesai tanpa bukti tambahan**:
+
+-   seluruh tes repository lulus pada versi terkini;
+-   eksperimen end-to-end berhasil;
+-   semua 100 sampel telah dievaluasi pada semua pasangan model dan
+    kondisi;
+-   seluruh pasangan LLM--VLM telah digunakan;
+-   human annotation telah diintegrasikan ke analisis;
+-   metrik transferability, visual-only, refusal, dan over-refusal telah
+    dihitung dan divalidasi.
+
+### Urutan kerja yang disarankan
+
+1.  Jalankan seluruh tes dan simpan output.
+2.  Audit loader, schema, dan pemetaan visual manifest.
+3.  Validasi kesetaraan kondisi teks dan visual.
+4.  Jalankan smoke test end-to-end dan audit JSONL.
+5.  Bekukan matriks model/kondisi/sampel lalu jalankan batch penuh.
+6.  Validasi classifier dan integrasi anotasi manusia.
+7.  Jalankan analisis dengan denominator yang jelas.
+8.  Buat grafik, laporan, dan presentasi berdasarkan hasil yang telah
+    diaudit.
+
+## Kontribusi dan status hasil
+
+Dokumen ini mendeskripsikan tujuan serta struktur yang diketahui dari
+catatan pengembangan. Perbarui bagian status berdasarkan bukti yang
+dapat direproduksi; jangan menambahkan angka eksperimen atau klaim
+keberhasilan tanpa hasil aktual.

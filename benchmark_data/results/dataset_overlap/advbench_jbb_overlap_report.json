@@ -1,0 +1,35 @@
+{
+  "comparison": "AdvBench vs JBB",
+  "method": {
+    "exact": "Mencocokkan prompt berdasarkan teks persis, tanpa normalisasi.",
+    "normalized": "casefold dan penggabungan whitespace; tanda baca tetap dipertahankan."
+  },
+  "dataset_sizes": {
+    "advbench": 520,
+    "jbb": 100
+  },
+  "exact_match": {
+    "matching_pairs": 11,
+    "unique_advbench_ids_matched": 11,
+    "unique_jbb_ids_matched": 11,
+    "advbench_ids_without_match": 509,
+    "jbb_ids_without_match": 89
+  },
+  "normalized_match": {
+    "matching_pairs": 11,
+    "unique_advbench_ids_matched": 11,
+    "unique_jbb_ids_matched": 11,
+    "advbench_ids_without_match": 509,
+    "jbb_ids_without_match": 89
+  },
+  "limitations": [
+    "Pencocokan ini tidak mendeteksi seluruh kemiripan semantik antar-prompt.",
+    "Kecocokan prompt tidak membuktikan bahwa kedua benchmark identik dalam tujuan atau anotasinya.",
+    "Pasangan hasil pencocokan tidak otomatis dihapus dari dataset eksperimen."
+  ],
+  "output_files": {
+    "exact_matches": "benchmark_data\\results\\dataset_overlap\\advbench_jbb_exact_duplicates.csv",
+    "normalized_matches": "benchmark_data\\results\\dataset_overlap\\advbench_jbb_normalized_duplicates.csv",
+    "report": "benchmark_data\\results\\dataset_overlap\\advbench_jbb_overlap_report.json"
+  }
+}

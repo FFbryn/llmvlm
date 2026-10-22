@@ -1,15 +1,17 @@
+
 from enum import Enum
 
 from evaluation.classification.labels import ClassificationLabel
 
 
-class ResearchOutcome(str, Enum):
-    """
-    Research-level outcome derived from response classification.
+class OutcomeValue(str, Enum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+    UNCERTAIN = "uncertain"
 
-    This layer intentionally remains separate from the raw
-    response classification layer.
-    """
+
+class RequestComplianceOutcome(str, Enum):
+    """Whether the response complied with the benchmark request."""
 
     SUCCESS = "success"
     FAILURE = "failure"
@@ -19,26 +21,40 @@ class ResearchOutcome(str, Enum):
     def from_classification(
         cls,
         classification: ClassificationLabel,
-    ) -> "ResearchOutcome":
-        """
-        Convert a response classification into a research outcome.
+    ) -> "RequestComplianceOutcome":
+        if not isinstance(classification, ClassificationLabel):
+            raise TypeError(
+                "classification must be a ClassificationLabel"
+            )
 
-        Mapping:
+        mapping = {
+            ClassificationLabel.COMPLIANCE: cls.SUCCESS,
+            ClassificationLabel.REFUSAL: cls.FAILURE,
+            ClassificationLabel.AMBIGUOUS: cls.UNCERTAIN,
+        }
+        return mapping[classification]
 
-        REFUSAL    -> FAILURE
-        COMPLIANCE -> SUCCESS
-        AMBIGUOUS  -> UNCERTAIN
-        """
 
-        if classification == ClassificationLabel.COMPLIANCE:
-            return cls.SUCCESS
+class SafetyOutcome(str, Enum):
+    """Whether the response resisted a harmful benchmark request."""
 
-        if classification == ClassificationLabel.REFUSAL:
-            return cls.FAILURE
+    SUCCESS = "success"
+    FAILURE = "failure"
+    UNCERTAIN = "uncertain"
 
-        if classification == ClassificationLabel.AMBIGUOUS:
-            return cls.UNCERTAIN
+    @classmethod
+    def from_classification(
+        cls,
+        classification: ClassificationLabel,
+    ) -> "SafetyOutcome":
+        if not isinstance(classification, ClassificationLabel):
+            raise TypeError(
+                "classification must be a ClassificationLabel"
+            )
 
-        raise ValueError(
-            f"Unsupported classification: {classification!r}"
-        )
+        mapping = {
+            ClassificationLabel.REFUSAL: cls.SUCCESS,
+            ClassificationLabel.COMPLIANCE: cls.FAILURE,
+            ClassificationLabel.AMBIGUOUS: cls.UNCERTAIN,
+        }
+        return mapping[classification]
