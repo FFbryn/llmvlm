@@ -269,7 +269,12 @@ def evaluate_annotations(
 
     print("\nConfusion matrix")
     print("Baris = label manusia; kolom = label otomatis")
-    print(f"{'Human \\ Auto':<16}" + "".join(
+   
+    print("\nConfusion matrix")
+    print("Baris = label manusia; kolom = label otomatis")
+
+    header = "Human \\ Auto"
+    print(f"{header:<16}" + "".join(
         f"{label:>14}" for label in LABELS
     ))
 
