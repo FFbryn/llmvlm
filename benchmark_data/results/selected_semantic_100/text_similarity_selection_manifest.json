@@ -1,0 +1,78 @@
+{
+  "created_at_utc": "2026-10-24T05:43:46.756530+00:00",
+  "project_root": "D:\\Documents\\Project\\LLM vs VLM",
+  "input_directory": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\dataset_overlap",
+  "output_directory": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100",
+  "target_per_dataset": 100,
+  "selection_method": "tfidf_word_char_cosine_farthest_first",
+  "method_details": {
+    "word_tfidf_ngrams": [
+      1,
+      2
+    ],
+    "character_tfidf_ngrams": [
+      3,
+      5
+    ],
+    "word_weight": 0.5,
+    "character_weight": 0.5,
+    "similarity": "cosine",
+    "selection": "deterministic farthest-first",
+    "random_seed": null
+  },
+  "notes": [
+    "Inputs must be candidate datasets from the overlap stage.",
+    "JSONL is preferred over CSV when both are available.",
+    "Exact duplicates are removed after whitespace and case normalization.",
+    "Original fields are preserved and selection metadata is appended.",
+    "TF-IDF is a lexical diversity heuristic and does not guarantee human-validated semantic diversity.",
+    "No model inference or new jailbreak prompts are generated."
+  ],
+  "datasets": [
+    {
+      "dataset": "advbench",
+      "input_path": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\dataset_overlap\\advbench_without_jbb_overlap.jsonl",
+      "input_sha256": "a0864dca53bdd909b2f4b44ca08cf00bc96904975ec41ccfbe5ca397fa9ce018",
+      "input_records": 509,
+      "text_field": "prompt",
+      "duplicate_or_empty_prompts_removed": 0,
+      "unique_candidates": 509,
+      "target": 100,
+      "selected_records": 100,
+      "selection_method": "tfidf_word_char_cosine_farthest_first",
+      "output_csv": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\advbench_100.csv",
+      "output_jsonl": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\advbench_100.jsonl",
+      "audit_csv": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\advbench_similarity_audit.csv"
+    },
+    {
+      "dataset": "harmbench",
+      "input_path": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\dataset_overlap\\harmbench_selected_unique.jsonl",
+      "input_sha256": "8ed60c5a49febaee8176abe52131faf54d8bf16e59ec77ca5674c0ee6c343dd0",
+      "input_records": 191,
+      "text_field": "prompt",
+      "duplicate_or_empty_prompts_removed": 0,
+      "unique_candidates": 191,
+      "target": 100,
+      "selected_records": 100,
+      "selection_method": "tfidf_word_char_cosine_farthest_first",
+      "output_csv": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\harmbench_100.csv",
+      "output_jsonl": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\harmbench_100.jsonl",
+      "audit_csv": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\harmbench_similarity_audit.csv"
+    },
+    {
+      "dataset": "xstest",
+      "input_path": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\dataset_overlap\\xstest_selected_unique.jsonl",
+      "input_sha256": "b76dafb44bbc35e268a7c6be1403ea2dc8c9a23401eab46a9807cd2e21bce8e1",
+      "input_records": 450,
+      "text_field": "prompt",
+      "duplicate_or_empty_prompts_removed": 0,
+      "unique_candidates": 450,
+      "target": 100,
+      "selected_records": 100,
+      "selection_method": "tfidf_word_char_cosine_farthest_first",
+      "output_csv": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\xstest_100.csv",
+      "output_jsonl": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\xstest_100.jsonl",
+      "audit_csv": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\selected_semantic_100\\xstest_similarity_audit.csv"
+    }
+  ]
+}

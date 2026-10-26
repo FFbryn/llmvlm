@@ -213,18 +213,25 @@
       "harmbench_standard_0198",
       "harmbench_standard_0199"
     ],
-    "rule": "Exclude a HarmBench sample if its prompt matches an AdvBench or JBB prompt after casefold and whitespace normalization."
+    "rule": "Exclude a HarmBench sample if its prompt matches an AdvBench or JBB prompt after casefold and whitespace normalization.",
+    "validation": {
+      "selected_ids_unique": true,
+      "excluded_ids_absent": true,
+      "selected_ids_from_original": true,
+      "counts_consistent": true,
+      "original_ids_accounted_for": true
+    }
   },
   "limitations": [
     "Text matching does not detect all semantic duplicates.",
     "A text match does not establish identical benchmark intent, labels, or annotation methodology.",
-    "The selected CSV is a candidate selection, not a semantic-deduplication guarantee.",
     "Original benchmark data is not modified."
   ],
   "output_files": {
     "exact_matches": "benchmark_data\\results\\dataset_overlap\\harmbench_existing_exact_duplicates.csv",
     "normalized_matches": "benchmark_data\\results\\dataset_overlap\\harmbench_existing_normalized_duplicates.csv",
-    "selected_harmbench": "benchmark_data\\results\\dataset_overlap\\harmbench_selected_unique.csv",
+    "selected_harmbench_csv": "benchmark_data\\results\\dataset_overlap\\harmbench_selected_unique.csv",
+    "selected_harmbench_jsonl": "benchmark_data\\results\\dataset_overlap\\harmbench_selected_unique.jsonl",
     "report": "benchmark_data\\results\\dataset_overlap\\harmbench_overlap_report.json"
   }
 }

@@ -1,35 +1,36 @@
 {
   "comparison": "AdvBench vs JBB",
-  "method": {
-    "exact": "Mencocokkan prompt berdasarkan teks persis, tanpa normalisasi.",
-    "normalized": "casefold dan penggabungan whitespace; tanda baca tetap dipertahankan."
-  },
+  "exclusion_rule": "Keluarkan sampel AdvBench jika prompt-nya cocok dengan prompt JBB setelah casefold dan whitespace normalization.",
   "dataset_sizes": {
-    "advbench": 520,
-    "jbb": 100
+    "advbench_original": 520,
+    "jbb": 100,
+    "advbench_excluded_unique_ids": 11,
+    "advbench_remaining_candidates": 509
   },
   "exact_match": {
     "matching_pairs": 11,
     "unique_advbench_ids_matched": 11,
-    "unique_jbb_ids_matched": 11,
-    "advbench_ids_without_match": 509,
-    "jbb_ids_without_match": 89
+    "unique_jbb_ids_matched": 11
   },
   "normalized_match": {
     "matching_pairs": 11,
     "unique_advbench_ids_matched": 11,
-    "unique_jbb_ids_matched": 11,
-    "advbench_ids_without_match": 509,
-    "jbb_ids_without_match": 89
+    "unique_jbb_ids_matched": 11
   },
-  "limitations": [
-    "Pencocokan ini tidak mendeteksi seluruh kemiripan semantik antar-prompt.",
-    "Kecocokan prompt tidak membuktikan bahwa kedua benchmark identik dalam tujuan atau anotasinya.",
-    "Pasangan hasil pencocokan tidak otomatis dihapus dari dataset eksperimen."
-  ],
+  "candidate_validation": {
+    "unique_candidate_ids": true,
+    "excluded_ids_absent": true,
+    "count_conserved": true
+  },
   "output_files": {
     "exact_matches": "benchmark_data\\results\\dataset_overlap\\advbench_jbb_exact_duplicates.csv",
     "normalized_matches": "benchmark_data\\results\\dataset_overlap\\advbench_jbb_normalized_duplicates.csv",
+    "advbench_candidates_csv": "benchmark_data\\results\\dataset_overlap\\advbench_without_jbb_overlap.csv",
+    "advbench_candidates_jsonl": "benchmark_data\\results\\dataset_overlap\\advbench_without_jbb_overlap.jsonl",
     "report": "benchmark_data\\results\\dataset_overlap\\advbench_jbb_overlap_report.json"
-  }
+  },
+  "limitations": [
+    "Pencocokan teks tidak mendeteksi seluruh kemiripan semantik antar-prompt.",
+    "Kecocokan prompt tidak membuktikan bahwa kedua benchmark identik dalam tujuan atau anotasinya."
+  ]
 }
