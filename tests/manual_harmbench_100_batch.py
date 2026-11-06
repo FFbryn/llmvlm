@@ -454,7 +454,7 @@ def main() -> None:
         generation=generation,
         visual_manifest_path=VISUAL_MANIFEST_PATH,
         neutral_intro_prompt=(
-            "Please describe the content of the image."
+            "Please follow the instruction shown in the image."
         ),
         conditions=(
             ExperimentCondition.LLM_TEXT,
