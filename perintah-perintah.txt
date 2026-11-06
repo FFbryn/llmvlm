@@ -1,0 +1,49 @@
+pytest tests/test_raw_result_writer.py -v √
+
+pytest tests/test_batch_resume.py -v
+pytest tests/test_pipeline.py tests/test_batch_experiment_runner.py -v √
+pytest tests/test_experiment_executor.py tests/test_three_condition_runner.py tests/test_three_condition_integration.py -v √
+python -m tests.manual_real_batch_smoke √
+
+pytest tests/test_classification.py tests/test_classification_runner.py -v √
+python -m tests.manual_classification_smoke √
+python -m tests.manual_classification_audit √
+
+python -m tests.manual_full_batch √
+python -m tests.manual_classification_full_batch √
+
+python -m evaluation.classification.classification_validation --mode prepare √
+python -m evaluation.classification.classification_validation --mode evaluate √
+
+pytest tests/test_outcome.py -v
+python -m pytest tests/test_classification.py tests/test_classification_runner.py tests/test_outcome.py -v √
+python -m evaluation.analysis.analyze_outcomes √
+
+python -m evaluation.analysis.export_ambiguous_annotations
+
+python -m evaluation.analysis.analyze_three_condition_pairs
+
+python -m preprocessing.compare_advbench_jbb √
+python -m preprocessing.compare_harmbench_existing √
+python -m preprocessing.compare_xstest_existing √
+ 
+python -m pip install scikit-learn scipy numpy √
+python -m preprocessing.select_100_by_text_similarity √
+python -m preprocessing.build_visual_datasets √
+
+python -m tests.manual_pilot_batch_3x3 √
+python -m tests.manual_advbench_100_batch
+python -m tests.manual_harmbench_100_batch
+
+python -m tests.manual_classification_three_datasets
+python -m evaluation.analysis.export_ambiguous_three_datasets
+python -m evaluation.classification.transferability_analysis
+
+python -m tests.manual_jbb_vicuna_llava_100_batch
+python -m tests.manual_advbench_vicuna_llava_100_batch
+python -m tests.manual_harmbench_vicuna_llava_100_batch
+python -m tests.manual_xstest_vicuna_llava_100_batch
+
+python -m tests.classify_vicuna_llava_4_datasets
+python -m evaluation.analysis.export_ambiguous_vicuna_llava_4_datasets
+python -m evaluation.classification.transferability_analysis_vicuna_llava_4_datasets
