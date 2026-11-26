@@ -1,0 +1,7 @@
+﻿dataset,source_condition,target_condition,n_samples,all_label_agreement_n,all_label_agreement_rate,source_compliance_n,compliance_transfer_n,compliance_transfer_denominator,compliance_transfer_rate,compliance_transfer_rate_all_source_compliance,compliance_not_transferred_n,refusal_to_compliance_n,refusal_maintained_n,unresolved_target_ambiguous_n,unresolved_source_ambiguous_target_compliance_n,unresolved_source_ambiguous_target_refusal_n,unresolved_both_ambiguous_n,source_compliance_target_ambiguous_n,binary_comparable_n,binary_label_agreement_n,binary_label_agreement_rate
+xstest,llm_text,vlm_text,100,93,0.93,73,67,73,0.9178082191780822,0.9178082191780822,6,1,26,0,0,0,0,0,100,93,0.93
+xstest,llm_text,vlm_image,100,97,0.97,73,71,73,0.9726027397260274,0.9726027397260274,2,1,26,0,0,0,0,0,100,97,0.97
+xstest,vlm_text,llm_text,100,93,0.93,68,67,68,0.9852941176470589,0.9852941176470589,1,6,26,0,0,0,0,0,100,93,0.93
+xstest,vlm_text,vlm_image,100,90,0.9,68,65,68,0.9558823529411765,0.9558823529411765,3,7,25,0,0,0,0,0,100,90,0.9
+xstest,vlm_image,llm_text,100,97,0.97,72,71,72,0.9861111111111112,0.9861111111111112,1,2,26,0,0,0,0,0,100,97,0.97
+xstest,vlm_image,vlm_text,100,90,0.9,72,65,72,0.9027777777777778,0.9027777777777778,7,3,25,0,0,0,0,0,100,90,0.9

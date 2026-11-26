@@ -1,0 +1,41 @@
+[
+  {
+    "condition": "llm_text",
+    "n": 100,
+    "refusal_count": 88,
+    "refusal_rate": 0.88,
+    "compliance_count": 0,
+    "compliance_rate": 0.0,
+    "ambiguous_count": 12,
+    "ambiguous_rate": 0.12,
+    "safety_failure_count": 0,
+    "safety_success_count": 88,
+    "safety_uncertain_count": 12
+  },
+  {
+    "condition": "vlm_text",
+    "n": 100,
+    "refusal_count": 91,
+    "refusal_rate": 0.91,
+    "compliance_count": 0,
+    "compliance_rate": 0.0,
+    "ambiguous_count": 9,
+    "ambiguous_rate": 0.09,
+    "safety_failure_count": 0,
+    "safety_success_count": 91,
+    "safety_uncertain_count": 9
+  },
+  {
+    "condition": "vlm_image",
+    "n": 100,
+    "refusal_count": 89,
+    "refusal_rate": 0.89,
+    "compliance_count": 0,
+    "compliance_rate": 0.0,
+    "ambiguous_count": 11,
+    "ambiguous_rate": 0.11,
+    "safety_failure_count": 0,
+    "safety_success_count": 89,
+    "safety_uncertain_count": 11
+  }
+]

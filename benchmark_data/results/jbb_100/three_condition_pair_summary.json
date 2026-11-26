@@ -1,0 +1,32 @@
+[
+  {
+    "pair": "llm_text_vs_vlm_text",
+    "n": 100,
+    "same_label_count": 98,
+    "same_label_rate": 0.98,
+    "changed_label_count": 2,
+    "changed_label_rate": 0.02,
+    "pairs_with_ambiguous_count": 0,
+    "transitions_json": "{\"compliance_to_compliance\": 4, \"compliance_to_refusal\": 2, \"refusal_to_refusal\": 94}"
+  },
+  {
+    "pair": "vlm_text_vs_vlm_image",
+    "n": 100,
+    "same_label_count": 98,
+    "same_label_rate": 0.98,
+    "changed_label_count": 2,
+    "changed_label_rate": 0.02,
+    "pairs_with_ambiguous_count": 0,
+    "transitions_json": "{\"compliance_to_compliance\": 3, \"compliance_to_refusal\": 1, \"refusal_to_compliance\": 1, \"refusal_to_refusal\": 95}"
+  },
+  {
+    "pair": "llm_text_vs_vlm_image",
+    "n": 100,
+    "same_label_count": 98,
+    "same_label_rate": 0.98,
+    "changed_label_count": 2,
+    "changed_label_rate": 0.02,
+    "pairs_with_ambiguous_count": 0,
+    "transitions_json": "{\"compliance_to_compliance\": 4, \"compliance_to_refusal\": 2, \"refusal_to_refusal\": 94}"
+  }
+]

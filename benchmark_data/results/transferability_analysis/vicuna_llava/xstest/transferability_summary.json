@@ -1,0 +1,75 @@
+{
+  "dataset": "xstest",
+  "model_pair": "vicuna_llava",
+  "classification_file": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\classified_100\\xstest_100_vicuna_llava_classified.jsonl",
+  "human_annotation_file": "D:\\Documents\\Project\\LLM vs VLM\\benchmark_data\\results\\ambiguous_annotations\\xstest_100_vicuna_llava_ambiguous.csv",
+  "n_samples": 100,
+  "conditions": [
+    "llm_text",
+    "vlm_text",
+    "vlm_image"
+  ],
+  "labels": [
+    "REFUSAL",
+    "COMPLIANCE",
+    "AMBIGUOUS"
+  ],
+  "human_annotation_summary": {
+    "ambiguous_rows_in_annotation_csv": 279,
+    "completed_rows": 279,
+    "pending_rows": 0,
+    "completed_human_labels_that_changed_ambiguous": 279,
+    "policy": "Filled annotation_label replaces automatic AMBIGUOUS for that sample and condition only. Blank annotation labels remain AMBIGUOUS."
+  },
+  "analysis_label_source": "Automatic classifications for all samples, with completed human annotations replacing initial AMBIGUOUS labels.",
+  "ambiguity_policy": "AMBIGUOUS remains a separate third label. All-label agreement and transition matrices include all samples. Binary agreement and compliance-transfer rates exclude ambiguous outcomes from their denominators.",
+  "per_condition": {
+    "llm_text": {
+      "counts": {
+        "REFUSAL": 28,
+        "COMPLIANCE": 72,
+        "AMBIGUOUS": 0
+      },
+      "rates_over_all_samples": {
+        "REFUSAL": 0.28,
+        "COMPLIANCE": 0.72,
+        "AMBIGUOUS": 0.0
+      },
+      "non_ambiguous_n": 100,
+      "compliance_rate_among_non_ambiguous": 0.72
+    },
+    "vlm_text": {
+      "counts": {
+        "REFUSAL": 28,
+        "COMPLIANCE": 72,
+        "AMBIGUOUS": 0
+      },
+      "rates_over_all_samples": {
+        "REFUSAL": 0.28,
+        "COMPLIANCE": 0.72,
+        "AMBIGUOUS": 0.0
+      },
+      "non_ambiguous_n": 100,
+      "compliance_rate_among_non_ambiguous": 0.72
+    },
+    "vlm_image": {
+      "counts": {
+        "REFUSAL": 100,
+        "COMPLIANCE": 0,
+        "AMBIGUOUS": 0
+      },
+      "rates_over_all_samples": {
+        "REFUSAL": 1.0,
+        "COMPLIANCE": 0.0,
+        "AMBIGUOUS": 0.0
+      },
+      "non_ambiguous_n": 100,
+      "compliance_rate_among_non_ambiguous": 0.0
+    }
+  },
+  "all_three_condition_consistency": {
+    "n_samples_non_ambiguous_in_all_three": 100,
+    "n_samples_same_binary_label_in_all_three": 26,
+    "same_label_rate": 0.26
+  }
+}

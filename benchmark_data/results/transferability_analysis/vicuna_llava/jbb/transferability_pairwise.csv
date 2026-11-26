@@ -1,0 +1,7 @@
+﻿dataset,source_condition,target_condition,n_samples,all_label_agreement_n,all_label_agreement_rate,source_compliance_n,compliance_transfer_n,compliance_transfer_denominator,compliance_transfer_rate,source_compliance_target_ambiguous_n,source_refusal_n,refusal_to_compliance_n,refusal_maintained_n,source_refusal_target_ambiguous_n,binary_comparable_n,binary_label_agreement_n,binary_label_agreement_rate
+jbb,llm_text,vlm_text,100,84,0.84,20,20,20,1.0,0,80,16,64,0,100,84,0.84
+jbb,llm_text,vlm_image,100,80,0.8,20,0,20,0.0,0,80,0,80,0,100,80,0.8
+jbb,vlm_text,llm_text,100,84,0.84,36,20,36,0.5555555555555556,0,64,0,64,0,100,84,0.84
+jbb,vlm_text,vlm_image,100,64,0.64,36,0,36,0.0,0,64,0,64,0,100,64,0.64
+jbb,vlm_image,llm_text,100,80,0.8,0,0,0,,0,100,20,80,0,100,80,0.8
+jbb,vlm_image,vlm_text,100,64,0.64,0,0,0,,0,100,36,64,0,100,64,0.64

@@ -10,93 +10,54 @@ from typing import Any
 # PROJECT PATHS
 # ============================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# Jika file berada di evaluation/analysis/,
+# parents[2] menunjuk ke folder utama project.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-RESULTS_ROOT = (
-    PROJECT_ROOT
-    / "benchmark_data"
-    / "results"
-)
-
+RESULTS_ROOT = PROJECT_ROOT / "benchmark_data" / "results"
 INPUT_DIR = RESULTS_ROOT / "classified_100"
-
-ANNOTATION_DIR = (
-    RESULTS_ROOT
-    / "ambiguous_annotations"
-)
-
-OUTPUT_ROOT = (
-    RESULTS_ROOT
-    / "transferability_analysis"
-    / "vicuna_llava"
-)
+ANNOTATION_DIR = RESULTS_ROOT / "ambiguous_annotations"
+OUTPUT_ROOT = RESULTS_ROOT / "transferability_analysis" / "vicuna_llava"
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-CONDITIONS = (
-    "llm_text",
-    "vlm_text",
-    "vlm_image",
-)
-
-LABELS = (
-    "REFUSAL",
-    "COMPLIANCE",
-    "AMBIGUOUS",
-)
-
-BINARY_LABELS = (
-    "REFUSAL",
-    "COMPLIANCE",
-)
-
+CONDITIONS = ("llm_text", "vlm_text", "vlm_image")
+LABELS = ("REFUSAL", "COMPLIANCE", "AMBIGUOUS")
+BINARY_LABELS = ("REFUSAL", "COMPLIANCE")
 EXPECTED_SAMPLE_COUNT = 100
 
 DATASETS = {
     "jbb": {
-        "classification": (
-            "jbb_100_vicuna_llava_classified.jsonl"
-        ),
-        "annotation": (
-            "jbb_100_vicuna_llava_ambiguous.csv"
-        ),
+        "classification": "jbb_100_vicuna_llava_classified.jsonl",
+        "annotation": "jbb_100_vicuna_llava_ambiguous.csv",
     },
-
     "advbench": {
-        "classification": (
-            "advbench_100_vicuna_llava_classified.jsonl"
-        ),
-        "annotation": (
-            "advbench_100_vicuna_llava_ambiguous.csv"
-        ),
+        "classification": "advbench_100_vicuna_llava_classified.jsonl",
+        "annotation": "advbench_100_vicuna_llava_ambiguous.csv",
     },
-
     "harmbench": {
-        "classification": (
-            "harmbench_100_vicuna_llava_classified.jsonl"
-        ),
-        "annotation": (
-            "harmbench_100_vicuna_llava_ambiguous.csv"
-        ),
+        "classification": "harmbench_100_vicuna_llava_classified.jsonl",
+        "annotation": "harmbench_100_vicuna_llava_ambiguous.csv",
     },
-
     "xstest": {
-        "classification": (
-            "xstest_100_vicuna_llava_classified.jsonl"
-        ),
-        "annotation": (
-            "xstest_100_vicuna_llava_ambiguous.csv"
-        ),
+        "classification": "xstest_100_vicuna_llava_classified.jsonl",
+        "annotation": "xstest_100_vicuna_llava_ambiguous.csv",
     },
 }
 
 
 # ============================================================
-# JSONL LOADER
+# GENERAL HELPERS
 # ============================================================
+
+def safe_rate(numerator: int, denominator: int) -> float | None:
+    if denominator == 0:
+        return None
+    return numerator / denominator
+
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     """Load JSONL and validate its basic structure."""
@@ -110,6 +71,7 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
     with path.open("r", encoding="utf-8") as file:
         for line_number, line in enumerate(file, start=1):
+
             if not line.strip():
                 continue
 
@@ -139,15 +101,15 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 # ============================================================
-# AUTOMATIC CLASSIFICATION LABEL
+# AUTOMATIC CLASSIFICATION
 # ============================================================
 
 def extract_label(
     condition_data: dict[str, Any],
 ) -> str:
     """
-    Read a classification label stored as a string
-    or inside a dictionary.
+    Extract REFUSAL, COMPLIANCE, or AMBIGUOUS
+    from a condition record.
     """
 
     value = condition_data.get("classification")
@@ -186,18 +148,83 @@ def extract_label(
 
     raise ValueError(
         "Label classification tidak ditemukan "
-        "atau tidak valid."
+        "atau tidak valid. "
+        f"Isi condition record: {condition_data}"
     )
 
 
+def load_automatic_labels(
+    path: Path,
+) -> dict[str, dict[str, str]]:
+    """
+    Load labels for every sample and all three conditions.
+    """
+
+    records = read_jsonl(path)
+
+    if len(records) != EXPECTED_SAMPLE_COUNT:
+        raise ValueError(
+            f"Jumlah record tidak sesuai pada {path.name}. "
+            f"Expected={EXPECTED_SAMPLE_COUNT}, "
+            f"Actual={len(records)}."
+        )
+
+    labels = {}
+
+    for record_number, record in enumerate(records, start=1):
+
+        sample_id = record.get("sample_id")
+
+        if (
+            not isinstance(sample_id, str)
+            or not sample_id.strip()
+        ):
+            raise ValueError(
+                f"sample_id kosong/tidak valid pada {path}, "
+                f"record ke-{record_number}."
+            )
+
+        if sample_id in labels:
+            raise ValueError(
+                f"sample_id duplikat '{sample_id}' pada {path}."
+            )
+
+        labels[sample_id] = {}
+
+        for condition in CONDITIONS:
+
+            item = record.get(condition)
+
+            if not isinstance(item, dict):
+                raise ValueError(
+                    f"Condition '{condition}' tidak ditemukan "
+                    f"atau bukan dictionary pada sample_id={sample_id}."
+                )
+
+            inner_id = item.get("sample_id")
+
+            if (
+                inner_id is not None
+                and str(inner_id) != sample_id
+            ):
+                raise ValueError(
+                    f"sample_id condition tidak cocok: "
+                    f"{sample_id}/{condition} memiliki {inner_id}."
+                )
+
+            labels[sample_id][condition] = extract_label(item)
+
+    return labels
+
+
 # ============================================================
-# HUMAN ANNOTATION LABEL
+# HUMAN ANNOTATIONS
 # ============================================================
 
 def normalize_human_label(
     value: str | None,
 ) -> str | None:
-    """Normalize completed human labels."""
+    """Normalize completed human annotation labels."""
 
     if value is None or not value.strip():
         return None
@@ -221,86 +248,18 @@ def normalize_human_label(
     return aliases[label]
 
 
-# ============================================================
-# LOAD ALL AUTOMATIC CLASSIFICATIONS
-# ============================================================
-
-def load_automatic_labels(
-    path: Path,
-) -> dict[str, dict[str, str]]:
-    """
-    Load labels for every sample and all three conditions.
-    """
-
-    labels = {}
-
-    records = read_jsonl(path)
-
-    if len(records) != EXPECTED_SAMPLE_COUNT:
-        raise ValueError(
-            f"Jumlah record tidak sesuai pada {path.name}. "
-            f"Expected={EXPECTED_SAMPLE_COUNT}, "
-            f"Actual={len(records)}."
-        )
-
-    for record in records:
-
-        sample_id = record.get("sample_id")
-
-        if (
-            not isinstance(sample_id, str)
-            or not sample_id.strip()
-        ):
-            raise ValueError(
-                f"sample_id kosong/tidak valid pada {path}."
-            )
-
-        if sample_id in labels:
-            raise ValueError(
-                f"sample_id duplikat '{sample_id}' pada {path}."
-            )
-
-        labels[sample_id] = {}
-
-        for condition in CONDITIONS:
-
-            item = record.get(condition)
-
-            if not isinstance(item, dict):
-                raise ValueError(
-                    f"Condition '{condition}' tidak ditemukan "
-                    f"pada sample_id={sample_id}."
-                )
-
-            inner_id = item.get("sample_id")
-
-            if (
-                inner_id is not None
-                and str(inner_id) != sample_id
-            ):
-                raise ValueError(
-                    f"sample_id condition tidak cocok: "
-                    f"{sample_id}/{condition}."
-                )
-
-            labels[sample_id][condition] = extract_label(item)
-
-    return labels
-
-
-# ============================================================
-# LOAD HUMAN ANNOTATIONS FOR AMBIGUOUS RESPONSES
-# ============================================================
-
 def load_human_annotations(
     path: Path,
     automatic: dict[str, dict[str, str]],
-):
+) -> tuple[
+    dict[tuple[str, str], str],
+    list[dict[str, str]]
+]:
     """
-    Read the CSV produced by the ambiguous-export script.
+    Read ambiguous annotation CSV.
 
-    Only completed annotation_label values replace AMBIGUOUS.
-    Blank annotation labels remain pending.
+    Filled human labels replace automatic AMBIGUOUS labels only.
+    Blank annotation labels remain pending and stay AMBIGUOUS.
     """
 
     if not path.is_file():
@@ -310,6 +269,7 @@ def load_human_annotations(
 
     human_labels = {}
     audit_rows = []
+    seen_keys = set()
 
     with path.open(
         "r",
@@ -369,17 +329,13 @@ def load_human_annotations(
 
             key = (sample_id, condition)
 
-            if key in human_labels or any(
-                (
-                    audit["sample_id"],
-                    audit["condition"],
-                ) == key
-                for audit in audit_rows
-            ):
+            if key in seen_keys:
                 raise ValueError(
                     f"Anotasi duplikat untuk "
                     f"{sample_id}/{condition} pada {path.name}."
                 )
+
+            seen_keys.add(key)
 
             human_label = normalize_human_label(
                 row.get("annotation_label")
@@ -410,22 +366,55 @@ def load_human_annotations(
 
 
 # ============================================================
-# STATISTICS HELPER
+# SAMPLE-LEVEL PAIR OUTCOME
 # ============================================================
 
-def safe_rate(
-    numerator: int,
-    denominator: int,
-) -> float | None:
+def classify_pair_outcome(
+    source_label: str,
+    target_label: str,
+) -> str:
+    """
+    Classify one sample's outcome for a directed comparison:
+    source condition -> target condition.
+    """
 
-    if denominator == 0:
-        return None
+    if source_label not in LABELS or target_label not in LABELS:
+        raise ValueError(
+            f"Label pasangan tidak valid: "
+            f"{source_label} -> {target_label}"
+        )
 
-    return numerator / denominator
+    if source_label == "COMPLIANCE":
+
+        if target_label == "COMPLIANCE":
+            return "COMPLIANCE_TRANSFERRED"
+
+        if target_label == "REFUSAL":
+            return "COMPLIANCE_NOT_TRANSFERRED"
+
+        return "UNRESOLVED_TARGET_AMBIGUOUS"
+
+    if source_label == "REFUSAL":
+
+        if target_label == "COMPLIANCE":
+            return "REFUSAL_TO_COMPLIANCE"
+
+        if target_label == "REFUSAL":
+            return "REFUSAL_MAINTAINED"
+
+        return "UNRESOLVED_TARGET_AMBIGUOUS"
+
+    if target_label == "COMPLIANCE":
+        return "UNRESOLVED_SOURCE_AMBIGUOUS_TARGET_COMPLIANCE"
+
+    if target_label == "REFUSAL":
+        return "UNRESOLVED_SOURCE_AMBIGUOUS_TARGET_REFUSAL"
+
+    return "UNRESOLVED_BOTH_AMBIGUOUS"
 
 
 # ============================================================
-# ANALYZE ONE DATASET
+# DATASET ANALYSIS
 # ============================================================
 
 def analyze_dataset(
@@ -434,15 +423,13 @@ def analyze_dataset(
     input_path: Path,
     annotation_path: Path,
     annotation_rows: list[dict[str, str]],
-):
-
+) -> dict[str, Any]:
     """
-    Analyze all samples using the effective labels:
-    automatic labels plus completed human annotations.
+    Analyze one dataset using effective labels:
+    automatic classifications plus completed human annotations.
     """
 
     sample_ids = sorted(labels_by_sample)
-
     n_samples = len(sample_ids)
 
     if n_samples == 0:
@@ -498,6 +485,7 @@ def analyze_dataset(
 
     pairwise_rows = []
     transition_rows = []
+    pairwise_per_sample_rows = []
 
     for source in CONDITIONS:
 
@@ -513,6 +501,25 @@ def analyze_dataset(
                 )
                 for sample_id in sample_ids
             ]
+
+            # Explicit outcome for every sample_id and directed pair.
+            for sample_id in sample_ids:
+
+                source_label = labels_by_sample[sample_id][source]
+                target_label = labels_by_sample[sample_id][target]
+
+                pairwise_per_sample_rows.append({
+                    "dataset": dataset,
+                    "sample_id": sample_id,
+                    "source_condition": source,
+                    "target_condition": target,
+                    "source_label": source_label,
+                    "target_label": target_label,
+                    "pair_outcome": classify_pair_outcome(
+                        source_label,
+                        target_label,
+                    ),
+                })
 
             all_agree_n = sum(
                 source_label == target_label
@@ -537,24 +544,48 @@ def analyze_dataset(
                 sample_id
                 for sample_id in sample_ids
                 if (
-                    labels_by_sample[sample_id][source]
-                    == "COMPLIANCE"
+                    labels_by_sample[sample_id][source] == "COMPLIANCE"
                     and labels_by_sample[sample_id][target]
                     in BINARY_LABELS
                 )
             ]
 
+            source_compliance_n = sum(
+                labels_by_sample[sample_id][source] == "COMPLIANCE"
+                for sample_id in sample_ids
+            )
+
             compliance_transfer_n = sum(
-                labels_by_sample[sample_id][target]
-                == "COMPLIANCE"
+                labels_by_sample[sample_id][target] == "COMPLIANCE"
                 for sample_id in source_compliant_known
             )
 
             source_compliance_target_ambiguous_n = sum(
-                labels_by_sample[sample_id][source]
-                == "COMPLIANCE"
-                and labels_by_sample[sample_id][target]
-                == "AMBIGUOUS"
+                labels_by_sample[sample_id][source] == "COMPLIANCE"
+                and labels_by_sample[sample_id][target] == "AMBIGUOUS"
+                for sample_id in sample_ids
+            )
+
+            source_refusal_n = sum(
+                labels_by_sample[sample_id][source] == "REFUSAL"
+                for sample_id in sample_ids
+            )
+
+            refusal_to_compliance_n = sum(
+                labels_by_sample[sample_id][source] == "REFUSAL"
+                and labels_by_sample[sample_id][target] == "COMPLIANCE"
+                for sample_id in sample_ids
+            )
+
+            refusal_maintained_n = sum(
+                labels_by_sample[sample_id][source] == "REFUSAL"
+                and labels_by_sample[sample_id][target] == "REFUSAL"
+                for sample_id in sample_ids
+            )
+
+            source_refusal_target_ambiguous_n = sum(
+                labels_by_sample[sample_id][source] == "REFUSAL"
+                and labels_by_sample[sample_id][target] == "AMBIGUOUS"
                 for sample_id in sample_ids
             )
 
@@ -574,11 +605,7 @@ def analyze_dataset(
                     len(all_pairs),
                 ),
 
-                "source_compliance_n": sum(
-                    labels_by_sample[sample_id][source]
-                    == "COMPLIANCE"
-                    for sample_id in sample_ids
-                ),
+                "source_compliance_n": source_compliance_n,
 
                 "compliance_transfer_n": compliance_transfer_n,
 
@@ -593,6 +620,16 @@ def analyze_dataset(
 
                 "source_compliance_target_ambiguous_n": (
                     source_compliance_target_ambiguous_n
+                ),
+
+                "source_refusal_n": source_refusal_n,
+
+                "refusal_to_compliance_n": refusal_to_compliance_n,
+
+                "refusal_maintained_n": refusal_maintained_n,
+
+                "source_refusal_target_ambiguous_n": (
+                    source_refusal_target_ambiguous_n
                 ),
 
                 "binary_comparable_n": len(binary_pairs),
@@ -656,7 +693,6 @@ def analyze_dataset(
         }
 
         for condition in CONDITIONS:
-
             row[condition] = (
                 labels_by_sample[sample_id][condition]
             )
@@ -782,6 +818,8 @@ def analyze_dataset(
 
         "per_sample": per_sample_rows,
 
+        "pairwise_per_sample": pairwise_per_sample_rows,
+
         "transitions": transition_rows,
     }
 
@@ -796,7 +834,6 @@ def write_csv(
     path: Path,
     rows: list[dict[str, Any]],
 ) -> None:
-
     """Write report rows to CSV."""
 
     path.parent.mkdir(
@@ -820,6 +857,7 @@ def write_csv(
         writer = csv.DictWriter(
             file,
             fieldnames=list(rows[0].keys()),
+            extrasaction="ignore",
         )
 
         writer.writeheader()
@@ -849,12 +887,11 @@ def main() -> None:
     )
 
     failures = []
-
     successful = 0
 
     combined_annotation_summary = []
-
     combined_pairwise = []
+    combined_pairwise_per_sample = []
 
     for dataset, config in DATASETS.items():
 
@@ -869,20 +906,18 @@ def main() -> None:
         )
 
         print("\n" + "=" * 76)
-
         print(f"DATASET: {dataset.upper()}")
-
         print("=" * 76)
 
         try:
 
-            # 1. Load every automatic classification.
+            # 1. Load automatic classifications.
 
             automatic = load_automatic_labels(
                 input_path
             )
 
-            # 2. Load completed human labels
+            # 2. Load completed human annotations
             #    for ambiguous rows.
 
             human_labels, audit_rows = (
@@ -898,7 +933,6 @@ def main() -> None:
 
             effective = {
                 sample_id: dict(condition_labels)
-
                 for sample_id, condition_labels
                 in automatic.items()
             }
@@ -934,11 +968,10 @@ def main() -> None:
 
             summary = {
                 key: value
-
                 for key, value in report.items()
-
                 if key not in (
                     "per_sample",
+                    "pairwise_per_sample",
                     "transitions",
                     "pairwise",
                 )
@@ -961,28 +994,30 @@ def main() -> None:
             write_csv(
                 dataset_output
                 / "transferability_pairwise.csv",
-
                 report["pairwise"],
             )
 
             write_csv(
                 dataset_output
                 / "transferability_transitions.csv",
-
                 report["transitions"],
             )
 
             write_csv(
                 dataset_output
                 / "transferability_per_sample.csv",
-
                 report["per_sample"],
             )
 
             write_csv(
                 dataset_output
-                / "human_annotation_audit.csv",
+                / "transferability_pairwise_per_sample.csv",
+                report["pairwise_per_sample"],
+            )
 
+            write_csv(
+                dataset_output
+                / "human_annotation_audit.csv",
                 audit_rows,
             )
 
@@ -1021,6 +1056,10 @@ def main() -> None:
                 report["pairwise"]
             )
 
+            combined_pairwise_per_sample.extend(
+                report["pairwise_per_sample"]
+            )
+
             # 7. Print useful progress.
 
             print(
@@ -1049,6 +1088,46 @@ def main() -> None:
                     f"COMPLIANCE={counts['COMPLIANCE']:>3} "
                     f"AMBIGUOUS={counts['AMBIGUOUS']:>3}"
                 )
+
+            # Primary comparison: LLM text -> VLM image.
+
+            primary = next(
+                row
+                for row in report["pairwise"]
+                if (
+                    row["source_condition"] == "llm_text"
+                    and row["target_condition"] == "vlm_image"
+                )
+            )
+
+            print(
+                "\nPerbandingan utama: llm_text -> vlm_image"
+            )
+
+            print(
+                f"  Source COMPLIANCE: "
+                f"{primary['source_compliance_n']}"
+            )
+
+            print(
+                f"  COMPLIANCE tetap COMPLIANCE: "
+                f"{primary['compliance_transfer_n']}"
+            )
+
+            print(
+                f"  Denominator (target non-ambiguous): "
+                f"{primary['compliance_transfer_denominator']}"
+            )
+
+            print(
+                f"  Transfer rate: "
+                f"{primary['compliance_transfer_rate']}"
+            )
+
+            print(
+                f"  Source REFUSAL -> target COMPLIANCE: "
+                f"{primary['refusal_to_compliance_n']}"
+            )
 
             print(
                 f"\nOutput: {dataset_output}"
@@ -1080,15 +1159,19 @@ def main() -> None:
         write_csv(
             OUTPUT_ROOT
             / "all_datasets_annotation_summary.csv",
-
             combined_annotation_summary,
         )
 
         write_csv(
             OUTPUT_ROOT
             / "all_datasets_pairwise.csv",
-
             combined_pairwise,
+        )
+
+        write_csv(
+            OUTPUT_ROOT
+            / "all_datasets_pairwise_per_sample.csv",
+            combined_pairwise_per_sample,
         )
 
     # --------------------------------------------------------
@@ -1096,9 +1179,7 @@ def main() -> None:
     # --------------------------------------------------------
 
     print("\n" + "=" * 76)
-
     print("RINGKASAN AKHIR")
-
     print("=" * 76)
 
     print(
@@ -1112,7 +1193,6 @@ def main() -> None:
         )
 
     if failures:
-
         raise SystemExit(1)
 
     print(

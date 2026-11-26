@@ -1,0 +1,4 @@
+﻿pair,n,same_label_count,same_label_rate,changed_label_count,changed_label_rate,pairs_with_ambiguous_count,transitions_json
+llm_text_vs_vlm_text,100,98,0.98,2,0.02,0,"{""compliance_to_compliance"": 4, ""compliance_to_refusal"": 2, ""refusal_to_refusal"": 94}"
+vlm_text_vs_vlm_image,100,98,0.98,2,0.02,0,"{""compliance_to_compliance"": 3, ""compliance_to_refusal"": 1, ""refusal_to_compliance"": 1, ""refusal_to_refusal"": 95}"
+llm_text_vs_vlm_image,100,98,0.98,2,0.02,0,"{""compliance_to_compliance"": 4, ""compliance_to_refusal"": 2, ""refusal_to_refusal"": 94}"

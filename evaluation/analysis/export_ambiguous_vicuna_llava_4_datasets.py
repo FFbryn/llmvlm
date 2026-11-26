@@ -8,39 +8,28 @@ from pathlib import Path
 # PROJECT PATHS
 # ============================================================
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# File berada di:
+# project_root/evaluation/analysis/
+#
+# parents[0] = evaluation/analysis
+# parents[1] = evaluation
+# parents[2] = project_root
 
-INPUT_DIRS = {
-    "jbb": (
-        PROJECT_ROOT
-        / "benchmark_data"
-        / "results"
-        / "classified_100"
-    ),
-    "advbench": (
-        PROJECT_ROOT
-        / "benchmark_data"
-        / "results"
-        / "classified_100"
-    ),
-    "harmbench": (
-        PROJECT_ROOT
-        / "benchmark_data"
-        / "results"
-        / "classified_100"
-    ),
-    "xstest": (
-        PROJECT_ROOT
-        / "benchmark_data"
-        / "results"
-        / "classified_100"
-    ),
-}
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-OUTPUT_DIR = (
+RESULTS_DIR = (
     PROJECT_ROOT
     / "benchmark_data"
     / "results"
+)
+
+INPUT_DIR = (
+    RESULTS_DIR
+    / "classified_100"
+)
+
+OUTPUT_DIR = (
+    RESULTS_DIR
     / "ambiguous_annotations"
 )
 
@@ -93,12 +82,15 @@ def load_jsonl(path: Path) -> list[dict]:
     records = []
 
     with path.open("r", encoding="utf-8") as file:
+
         for line_number, line in enumerate(file, start=1):
+
             if not line.strip():
                 continue
 
             try:
                 record = json.loads(line)
+
             except json.JSONDecodeError as exc:
                 raise ValueError(
                     f"JSON tidak valid pada {path.name}, "
@@ -122,9 +114,17 @@ def load_jsonl(path: Path) -> list[dict]:
 
 def get_label(condition_data: dict) -> str | None:
     """
-    Read classification labels represented as:
-    - a string, e.g. "ambiguous"
-    - a dictionary containing "label" or "value"
+    Support classification formats:
+
+    1. "classification": "ambiguous"
+
+    2. "classification": {
+           "label": "ambiguous"
+       }
+
+    3. "classification": {
+           "value": "ambiguous"
+       }
     """
 
     classification = condition_data.get("classification")
@@ -133,6 +133,7 @@ def get_label(condition_data: dict) -> str | None:
         return classification.strip().lower()
 
     if isinstance(classification, dict):
+
         label = classification.get(
             "label",
             classification.get("value"),
@@ -149,7 +150,7 @@ def get_label(condition_data: dict) -> str | None:
 # ============================================================
 
 def get_model_name(record: dict, condition: str) -> str:
-    """Extract model name when available; otherwise leave blank."""
+    """Extract model name when available."""
 
     condition_data = record.get(condition, {})
 
@@ -161,17 +162,17 @@ def get_model_name(record: dict, condition: str) -> str:
     if isinstance(model, str):
         return model
 
-    # Support an alternative schema if model metadata is stored
-    # under a top-level dictionary.
     models = record.get("models")
 
     if isinstance(models, dict):
+
         model = models.get(condition)
 
         if isinstance(model, str):
             return model
 
         if isinstance(model, dict):
+
             name = model.get("name")
 
             if isinstance(name, str):
@@ -188,7 +189,6 @@ def validate_records(
     records: list[dict],
     input_path: Path,
 ) -> None:
-    """Validate sample IDs and the three expected conditions."""
 
     if not records:
         raise ValueError(
@@ -205,9 +205,11 @@ def validate_records(
     sample_ids = []
 
     for index, record in enumerate(records, start=1):
+
         sample_id = record.get("sample_id")
 
         if not isinstance(sample_id, str) or not sample_id.strip():
+
             raise ValueError(
                 f"sample_id kosong/tidak valid pada record "
                 f"{index} di {input_path.name}."
@@ -216,9 +218,11 @@ def validate_records(
         sample_ids.append(sample_id)
 
         for condition in CONDITIONS:
+
             condition_data = record.get(condition)
 
             if not isinstance(condition_data, dict):
+
                 raise ValueError(
                     f"Condition '{condition}' tidak ditemukan "
                     f"atau bukan object pada sample_id={sample_id}."
@@ -227,12 +231,14 @@ def validate_records(
             response = condition_data.get("response")
 
             if not isinstance(response, str):
+
                 raise ValueError(
                     f"Response bukan string pada sample_id="
                     f"{sample_id}, condition={condition}."
                 )
 
             if get_label(condition_data) is None:
+
                 raise ValueError(
                     f"Label classification kosong/tidak valid "
                     f"pada sample_id={sample_id}, "
@@ -240,6 +246,7 @@ def validate_records(
                 )
 
     if len(sample_ids) != len(set(sample_ids)):
+
         raise ValueError(
             f"sample_id duplikat ditemukan pada {input_path.name}."
         )
@@ -252,13 +259,9 @@ def validate_records(
 def export_dataset(
     dataset_name: str,
     input_filename: str,
-) -> int:
-    """Export ambiguous conditions to a dataset-specific CSV."""
+) -> dict:
 
-    input_path = (
-        INPUT_DIRS[dataset_name]
-        / input_filename
-    )
+    input_path = INPUT_DIR / input_filename
 
     output_path = (
         OUTPUT_DIR
@@ -270,47 +273,87 @@ def export_dataset(
     print(f"DATASET: {dataset_name.upper()}")
     print("=" * 72)
 
+    # --------------------------------------------------------
+    # LOAD
+    # --------------------------------------------------------
+
     records = load_jsonl(input_path)
+
+    # --------------------------------------------------------
+    # VALIDATE
+    # --------------------------------------------------------
 
     validate_records(
         records,
         input_path,
     )
 
+    # --------------------------------------------------------
+    # COLLECT AMBIGUOUS
+    # --------------------------------------------------------
+
     rows = []
 
+    condition_counts = {
+        condition: 0
+        for condition in CONDITIONS
+    }
+
     for record in records:
+
         sample_id = record["sample_id"]
 
         for condition in CONDITIONS:
+
             condition_data = record[condition]
+
             label = get_label(condition_data)
 
             if label != AMBIGUOUS_LABEL:
                 continue
 
             rows.append({
+
                 "sample_id": sample_id,
+
                 "condition": condition,
-                "model": get_model_name(record, condition),
+
+                "model": get_model_name(
+                    record,
+                    condition,
+                ),
+
                 "original_classification": label,
+
                 "response": condition_data["response"],
+
+                # Human annotation fields
                 "annotation_label": "",
                 "annotation_notes": "",
                 "annotator_id": "",
             })
+
+            condition_counts[condition] += 1
+
+    # --------------------------------------------------------
+    # CREATE OUTPUT DIRECTORY
+    # --------------------------------------------------------
 
     OUTPUT_DIR.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    # Write a fresh CSV on each run, not append to an old file.
+    # --------------------------------------------------------
+    # EXPORT CSV
+    # --------------------------------------------------------
+
     with output_path.open(
         "w",
         newline="",
         encoding="utf-8-sig",
     ) as file:
+
         writer = csv.DictWriter(
             file,
             fieldnames=CSV_FIELDS,
@@ -319,78 +362,142 @@ def export_dataset(
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"Jumlah record sampel       : {len(records)}")
-    print(f"Jumlah baris ambiguous     : {len(rows)}")
+    # --------------------------------------------------------
+    # SUMMARY
+    # --------------------------------------------------------
+
+    print(f"Jumlah sampel              : {len(records)}")
+
+    print("\nJumlah ambiguous per kondisi:")
+
+    for condition, count in condition_counts.items():
+
+        print(
+            f"  {condition:<15}: {count:>3}"
+        )
+
+    print(f"\nTotal baris ambiguous      : {len(rows)}")
+
     print(f"Output                     : {output_path}")
+
     print("Status                     : BERHASIL")
 
-    return len(rows)
+    return {
+        "total_samples": len(records),
+        "total_ambiguous": len(rows),
+        "condition_counts": condition_counts,
+        "output_path": output_path,
+    }
 
 
 # ============================================================
 # MAIN
 # ============================================================
 
-def main() -> None:
+def main():
+
     print("=" * 72)
     print("EXPORT AMBIGUOUS UNTUK HUMAN ANNOTATION")
     print("MODEL PAIR: VICUNA - LLAVA")
     print("=" * 72)
 
-    print(f"Input directory : {PROJECT_ROOT / 'benchmark_data/results/classified_100'}")
+    print(f"Project root    : {PROJECT_ROOT}")
+    print(f"Input directory : {INPUT_DIR}")
     print(f"Output directory: {OUTPUT_DIR}")
+
+    # --------------------------------------------------------
+    # CHECK PROJECT PATHS
+    # --------------------------------------------------------
+
+    if not PROJECT_ROOT.exists():
+
+        raise FileNotFoundError(
+            f"Project root tidak ditemukan: {PROJECT_ROOT}"
+        )
+
+    if not INPUT_DIR.exists():
+
+        raise FileNotFoundError(
+            f"Input directory tidak ditemukan: {INPUT_DIR}"
+        )
+
+    # --------------------------------------------------------
+    # PROCESS DATASETS
+    # --------------------------------------------------------
 
     results = {}
     failures = {}
 
     for dataset_name, input_filename in DATASETS.items():
+
         try:
+
             results[dataset_name] = export_dataset(
                 dataset_name,
                 input_filename,
             )
 
         except Exception as exc:
+
             failures[dataset_name] = str(exc)
+
             print(
                 f"\nGAGAL memproses {dataset_name}: {exc}"
             )
+
+    # --------------------------------------------------------
+    # FINAL SUMMARY
+    # --------------------------------------------------------
 
     print()
     print("=" * 72)
     print("RINGKASAN AKHIR")
     print("=" * 72)
 
-    for dataset_name, count in results.items():
+    for dataset_name, result in results.items():
+
         print(
             f"{dataset_name:<12}: BERHASIL, "
-            f"{count} baris ambiguous"
+            f"{result['total_ambiguous']} baris ambiguous"
         )
 
     for dataset_name, error in failures.items():
+
         print(
             f"{dataset_name:<12}: GAGAL - {error}"
         )
 
+    print()
     print(
-        f"\nDataset berhasil: {len(results)}/{len(DATASETS)}"
+        f"Dataset berhasil: {len(results)}/{len(DATASETS)}"
     )
 
     if failures:
+
         print(
-            "Periksa error di atas. Dataset yang gagal "
-            "belum berhasil diekspor."
+            "Periksa error di atas. "
+            "Dataset yang gagal belum berhasil diekspor."
         )
+
     else:
-        total_ambiguous = sum(results.values())
+
+        total_ambiguous = sum(
+            result["total_ambiguous"]
+            for result in results.values()
+        )
 
         print(
             f"Total baris ambiguous: {total_ambiguous}"
         )
+
         print(
-            "Semua dataset berhasil diproses."
+            "Semua dataset berhasil diproses dan diekspor."
         )
 
+
+# ============================================================
+# ENTRY POINT
+# ============================================================
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,79 @@
+{
+  "experiment": "pilot_batch_3x3",
+  "selection_seed": 2026,
+  "samples_per_dataset": 3,
+  "dataset_count": 3,
+  "total_samples_target": 9,
+  "conditions": [
+    "llm_text",
+    "vlm_text",
+    "vlm_image"
+  ],
+  "expected_condition_results": 27,
+  "datasets": [
+    {
+      "dataset": "advbench",
+      "selected_sample_ids": [
+        "advbench_0026",
+        "advbench_0104",
+        "advbench_0258"
+      ],
+      "sample_count": 3,
+      "condition_count": 3,
+      "expected_condition_results": 9,
+      "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\pilot_batch_3x3\\advbench_pilot_3.jsonl",
+      "status": "passed",
+      "batch_summary": {
+        "total": 3,
+        "skipped": 0,
+        "completed": 3,
+        "failed": 0,
+        "failures": [],
+        "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\pilot_batch_3x3\\advbench_pilot_3.jsonl"
+      }
+    },
+    {
+      "dataset": "harmbench",
+      "selected_sample_ids": [
+        "harmbench_standard_0030",
+        "harmbench_standard_0033",
+        "harmbench_standard_0149"
+      ],
+      "sample_count": 3,
+      "condition_count": 3,
+      "expected_condition_results": 9,
+      "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\pilot_batch_3x3\\harmbench_pilot_3.jsonl",
+      "status": "passed",
+      "batch_summary": {
+        "total": 3,
+        "skipped": 0,
+        "completed": 3,
+        "failed": 0,
+        "failures": [],
+        "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\pilot_batch_3x3\\harmbench_pilot_3.jsonl"
+      }
+    },
+    {
+      "dataset": "xstest",
+      "selected_sample_ids": [
+        "xstest_2",
+        "xstest_417",
+        "xstest_446"
+      ],
+      "sample_count": 3,
+      "condition_count": 3,
+      "expected_condition_results": 9,
+      "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\pilot_batch_3x3\\xstest_pilot_3.jsonl",
+      "status": "passed",
+      "batch_summary": {
+        "total": 3,
+        "skipped": 0,
+        "completed": 3,
+        "failed": 0,
+        "failures": [],
+        "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\pilot_batch_3x3\\xstest_pilot_3.jsonl"
+      }
+    }
+  ],
+  "status": "passed"
+}

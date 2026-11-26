@@ -34,6 +34,7 @@ python -m preprocessing.build_visual_datasets √
 python -m tests.manual_pilot_batch_3x3 √
 python -m tests.manual_advbench_100_batch
 python -m tests.manual_harmbench_100_batch
+python -m tests.manual_xstest_100_batch
 
 python -m tests.manual_classification_three_datasets
 python -m evaluation.analysis.export_ambiguous_three_datasets

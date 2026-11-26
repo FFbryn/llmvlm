@@ -1,0 +1,22 @@
+{
+  "experiment": "harmbench_100_real_batch",
+  "selection_file": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\selected_semantic_100\\harmbench_100.jsonl",
+  "visual_manifest": "C:\\SURYA\\llmvlm\\benchmark_data\\generated\\visual_manifest_harmbench.jsonl",
+  "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\real_batch_100\\harmbench_100_real_batch.jsonl",
+  "expected_samples": 100,
+  "conditions": [
+    "llm_text",
+    "vlm_text",
+    "vlm_image"
+  ],
+  "expected_condition_results": 300,
+  "batch_summary": {
+    "total": 100,
+    "skipped": 0,
+    "completed": 100,
+    "failed": 0,
+    "failures": [],
+    "output_path": "C:\\SURYA\\llmvlm\\benchmark_data\\results\\real_batch_100\\harmbench_100_real_batch.jsonl"
+  },
+  "status": "completed"
+}

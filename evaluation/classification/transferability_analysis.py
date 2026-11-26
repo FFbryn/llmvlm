@@ -363,6 +363,31 @@ def safe_rate(
 
 
 # ============================================================
+# SAMPLE-LEVEL PAIRWISE OUTCOME
+# ============================================================
+
+def classify_pair_outcome(source_label: str, target_label: str) -> str:
+    """Classify one sample's outcome for a directed source -> target pair."""
+    if source_label == "COMPLIANCE":
+        if target_label == "COMPLIANCE":
+            return "COMPLIANCE_TRANSFERRED"
+        if target_label == "REFUSAL":
+            return "COMPLIANCE_NOT_TRANSFERRED"
+        return "UNRESOLVED_TARGET_AMBIGUOUS"
+    if source_label == "REFUSAL":
+        if target_label == "COMPLIANCE":
+            return "REFUSAL_TO_COMPLIANCE"
+        if target_label == "REFUSAL":
+            return "REFUSAL_MAINTAINED"
+        return "UNRESOLVED_TARGET_AMBIGUOUS"
+    if target_label == "COMPLIANCE":
+        return "UNRESOLVED_SOURCE_AMBIGUOUS_TARGET_COMPLIANCE"
+    if target_label == "REFUSAL":
+        return "UNRESOLVED_SOURCE_AMBIGUOUS_TARGET_REFUSAL"
+    return "UNRESOLVED_BOTH_AMBIGUOUS"
+
+
+# ============================================================
 # ANALYZE ONE DATASET
 # ============================================================
 
@@ -429,6 +454,7 @@ def analyze_dataset(
     # --------------------------------------------------------
 
     pairwise_rows = []
+    pairwise_sample_rows = []
     transition_rows = []
 
     for source in CONDITIONS:
@@ -488,6 +514,32 @@ def analyze_dataset(
                 for sample_id in sample_ids
             )
 
+            # Explicitly classify every sample_id for this directed pair.
+            sample_outcomes = []
+            for sample_id in sample_ids:
+                source_label = labels_by_sample[sample_id][source]
+                target_label = labels_by_sample[sample_id][target]
+                outcome = classify_pair_outcome(source_label, target_label)
+                sample_outcomes.append(outcome)
+                pairwise_sample_rows.append({
+                    "dataset": dataset,
+                    "sample_id": sample_id,
+                    "source_condition": source,
+                    "target_condition": target,
+                    "source_label": source_label,
+                    "target_label": target_label,
+                    "pair_outcome": outcome,
+                    "is_source_compliance": source_label == "COMPLIANCE",
+                    "is_compliance_transferred": (
+                        outcome == "COMPLIANCE_TRANSFERRED"
+                    ),
+                    "is_refusal_to_compliance": (
+                        outcome == "REFUSAL_TO_COMPLIANCE"
+                    ),
+                })
+
+            outcome_counts = Counter(sample_outcomes)
+
             pairwise_rows.append({
                 "dataset": dataset,
                 "source_condition": source,
@@ -513,6 +565,40 @@ def analyze_dataset(
                 "compliance_transfer_rate": safe_rate(
                     compliance_transfer_n,
                     len(source_compliant_known),
+                ),
+                "compliance_transfer_rate_all_source_compliance": (
+                    safe_rate(
+                        compliance_transfer_n,
+                        sum(
+                            labels_by_sample[sample_id][source] == "COMPLIANCE"
+                            for sample_id in sample_ids
+                        ),
+                    )
+                ),
+                "compliance_not_transferred_n": (
+                    outcome_counts["COMPLIANCE_NOT_TRANSFERRED"]
+                ),
+                "refusal_to_compliance_n": (
+                    outcome_counts["REFUSAL_TO_COMPLIANCE"]
+                ),
+                "refusal_maintained_n": (
+                    outcome_counts["REFUSAL_MAINTAINED"]
+                ),
+                "unresolved_target_ambiguous_n": (
+                    outcome_counts["UNRESOLVED_TARGET_AMBIGUOUS"]
+                ),
+                "unresolved_source_ambiguous_target_compliance_n": (
+                    outcome_counts[
+                        "UNRESOLVED_SOURCE_AMBIGUOUS_TARGET_COMPLIANCE"
+                    ]
+                ),
+                "unresolved_source_ambiguous_target_refusal_n": (
+                    outcome_counts[
+                        "UNRESOLVED_SOURCE_AMBIGUOUS_TARGET_REFUSAL"
+                    ]
+                ),
+                "unresolved_both_ambiguous_n": (
+                    outcome_counts["UNRESOLVED_BOTH_AMBIGUOUS"]
                 ),
 
                 "source_compliance_target_ambiguous_n": (
@@ -675,6 +761,7 @@ def analyze_dataset(
         },
 
         "per_sample": per_sample_rows,
+        "pairwise_per_sample": pairwise_sample_rows,
         "transitions": transition_rows,
     }
 
@@ -741,6 +828,7 @@ def main() -> None:
     successful = 0
     combined_annotation_summary = []
     combined_pairwise = []
+    combined_pairwise_samples = []
 
     for dataset, filename in DATASETS.items():
         input_path = INPUT_DIR / filename
@@ -798,6 +886,7 @@ def main() -> None:
                 for key, value in report.items()
                 if key not in (
                     "per_sample",
+                    "pairwise_per_sample",
                     "transitions",
                     "pairwise",
                 )
@@ -833,6 +922,11 @@ def main() -> None:
             )
 
             write_csv(
+                dataset_output / "transferability_pairwise_per_sample.csv",
+                report["pairwise_per_sample"],
+            )
+
+            write_csv(
                 dataset_output / "human_annotation_audit.csv",
                 audit_rows,
             )
@@ -861,9 +955,8 @@ def main() -> None:
                 ),
             })
 
-            combined_pairwise.extend(
-                report["pairwise"]
-            )
+            combined_pairwise.extend(report["pairwise"])
+            combined_pairwise_samples.extend(report["pairwise_per_sample"])
 
             # 7. Print useful progress.
             print(f"Jumlah sampel: {report['n_samples']}")
@@ -917,6 +1010,12 @@ def main() -> None:
         )
 
     print("\n" + "=" * 76)
+    if combined_pairwise_samples:
+        write_csv(
+            OUTPUT_ROOT / "all_datasets_pairwise_per_sample.csv",
+            combined_pairwise_samples,
+        )
+
     print("RINGKASAN AKHIR")
     print("=" * 76)
 

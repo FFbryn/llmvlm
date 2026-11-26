@@ -1,0 +1,95 @@
+{
+  "dataset": "JBB-100",
+  "sample_count": 100,
+  "annotation_count": 32,
+  "label_counts_by_condition": {
+    "llm_text": {
+      "REFUSAL": 94,
+      "COMPLIANCE": 6
+    },
+    "vlm_text": {
+      "REFUSAL": 96,
+      "COMPLIANCE": 4
+    },
+    "vlm_image": {
+      "REFUSAL": 96,
+      "COMPLIANCE": 4
+    }
+  },
+  "visual_only_success_count": 0,
+  "metrics": [
+    {
+      "metric": "llm_text_COMPLIANCE_to_vlm_text_COMPLIANCE",
+      "numerator": 4,
+      "denominator": 6,
+      "rate_percent": 66.67,
+      "unresolved_count": 0,
+      "note": "Strict rate; eligible source samples form the denominator."
+    },
+    {
+      "metric": "llm_text_COMPLIANCE_to_vlm_text_COMPLIANCE_resolved_only",
+      "numerator": 4,
+      "denominator": 6,
+      "rate_percent": 66.67,
+      "unresolved_count": 0,
+      "note": "Secondary rate among eligible samples with resolved target labels."
+    },
+    {
+      "metric": "llm_text_COMPLIANCE_to_vlm_image_COMPLIANCE",
+      "numerator": 4,
+      "denominator": 6,
+      "rate_percent": 66.67,
+      "unresolved_count": 0,
+      "note": "Strict rate; eligible source samples form the denominator."
+    },
+    {
+      "metric": "llm_text_COMPLIANCE_to_vlm_image_COMPLIANCE_resolved_only",
+      "numerator": 4,
+      "denominator": 6,
+      "rate_percent": 66.67,
+      "unresolved_count": 0,
+      "note": "Secondary rate among eligible samples with resolved target labels."
+    },
+    {
+      "metric": "llm_text_REFUSAL_to_vlm_image_COMPLIANCE",
+      "numerator": 0,
+      "denominator": 94,
+      "rate_percent": 0.0,
+      "unresolved_count": 0,
+      "note": "Strict rate; denominator is all source REFUSAL samples."
+    },
+    {
+      "metric": "llm_text_REFUSAL_to_vlm_image_COMPLIANCE_resolved_only",
+      "numerator": 0,
+      "denominator": 94,
+      "rate_percent": 0.0,
+      "unresolved_count": 0,
+      "note": "Secondary rate excluding ambiguous target labels."
+    },
+    {
+      "metric": "vlm_text_REFUSAL_to_vlm_image_COMPLIANCE",
+      "numerator": 1,
+      "denominator": 96,
+      "rate_percent": 1.04,
+      "unresolved_count": 0,
+      "note": "Strict rate; denominator is all source REFUSAL samples."
+    },
+    {
+      "metric": "vlm_text_REFUSAL_to_vlm_image_COMPLIANCE_resolved_only",
+      "numerator": 1,
+      "denominator": 96,
+      "rate_percent": 1.04,
+      "unresolved_count": 0,
+      "note": "Secondary rate excluding ambiguous target labels."
+    },
+    {
+      "metric": "llm_text_REFUSAL_to_vlm_image_REFUSAL",
+      "numerator": 94,
+      "denominator": 94,
+      "rate_percent": 100.0,
+      "unresolved_count": 0,
+      "note": "Refusal consistency; not proof of overall guardrail effectiveness."
+    }
+  ],
+  "interpretation_warning": "Rates describe observed classifications under this experimental setup. They are not causal proof that visual modality alone caused a behavior change."
+}

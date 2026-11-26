@@ -1,0 +1,10 @@
+﻿metric,numerator,denominator,rate_percent,unresolved_count,note
+llm_text_COMPLIANCE_to_vlm_text_COMPLIANCE,4,6,66.67,0,Strict rate; eligible source samples form the denominator.
+llm_text_COMPLIANCE_to_vlm_text_COMPLIANCE_resolved_only,4,6,66.67,0,Secondary rate among eligible samples with resolved target labels.
+llm_text_COMPLIANCE_to_vlm_image_COMPLIANCE,4,6,66.67,0,Strict rate; eligible source samples form the denominator.
+llm_text_COMPLIANCE_to_vlm_image_COMPLIANCE_resolved_only,4,6,66.67,0,Secondary rate among eligible samples with resolved target labels.
+llm_text_REFUSAL_to_vlm_image_COMPLIANCE,0,94,0.0,0,Strict rate; denominator is all source REFUSAL samples.
+llm_text_REFUSAL_to_vlm_image_COMPLIANCE_resolved_only,0,94,0.0,0,Secondary rate excluding ambiguous target labels.
+vlm_text_REFUSAL_to_vlm_image_COMPLIANCE,1,96,1.04,0,Strict rate; denominator is all source REFUSAL samples.
+vlm_text_REFUSAL_to_vlm_image_COMPLIANCE_resolved_only,1,96,1.04,0,Secondary rate excluding ambiguous target labels.
+llm_text_REFUSAL_to_vlm_image_REFUSAL,94,94,100.0,0,Refusal consistency; not proof of overall guardrail effectiveness.

@@ -1,0 +1,4 @@
+﻿dataset,n_samples,annotation_rows,human_labels_completed,human_labels_pending,human_labels_changing_ambiguous
+advbench,100,70,70,0,70
+harmbench,100,55,55,0,55
+xstest,100,245,245,0,245
